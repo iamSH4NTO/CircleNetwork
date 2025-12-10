@@ -11,9 +11,9 @@ interface DownloadState {
   addDownload: (url: string, filename: string) => void;
   updateDownload: (id: string, updates: Partial<DownloadItem>) => void;
   removeDownload: (id: string) => void;
-  pauseDownload: (id: string) => void;
-  resumeDownload: (id: string) => void;
-  cancelDownload: (id: string) => void;
+  pauseDownload: (id: string) => Promise<void>;
+  resumeDownload: (id: string) => Promise<void>;
+  cancelDownload: (id: string) => Promise<void>;
   setMaxThreads: (threads: number) => Promise<void>;
   loadDownloads: () => Promise<void>;
   saveDownloads: () => Promise<void>;
@@ -75,13 +75,13 @@ export const useDownloadStore = create<DownloadState>((set, get) => ({
     get().saveDownloads();
   },
 
-  pauseDownload: (id: string) => {
+  pauseDownload: async (id: string) => {
     // Pause the download task if it exists
     const { downloadTasks } = get();
     const task = downloadTasks.get(id);
     if (task) {
       try {
-        task.pause();
+        await task.pauseAsync();
       } catch (error) {
         console.warn('Failed to pause download task:', error);
       }
@@ -96,13 +96,13 @@ export const useDownloadStore = create<DownloadState>((set, get) => ({
     get().saveDownloads();
   },
 
-  resumeDownload: (id: string) => {
+  resumeDownload: async (id: string) => {
     // Resume the download task if it exists
     const { downloadTasks } = get();
     const task = downloadTasks.get(id);
     if (task) {
       try {
-        task.resume();
+        await task.resumeAsync();
       } catch (error) {
         console.warn('Failed to resume download task:', error);
       }
@@ -117,13 +117,13 @@ export const useDownloadStore = create<DownloadState>((set, get) => ({
     get().saveDownloads();
   },
 
-  cancelDownload: (id: string) => {
+  cancelDownload: async (id: string) => {
     // Cancel the download task if it exists
     const { downloadTasks } = get();
     const task = downloadTasks.get(id);
     if (task) {
       try {
-        task.cancel();
+        await task.cancelAsync();
       } catch (error) {
         console.warn('Failed to cancel download task:', error);
       }

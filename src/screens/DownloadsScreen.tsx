@@ -21,15 +21,15 @@ export const DownloadsScreen: React.FC = () => {
     loadDownloads();
   }, []);
 
-  const handlePause = (id: string) => {
-    pauseDownload(id);
+  const handlePause = async (id: string) => {
+    await pauseDownload(id);
   };
 
-  const handleResume = (id: string) => {
-    resumeDownload(id);
+  const handleResume = async (id: string) => {
+    await resumeDownload(id);
   };
 
-  const handleCancel = (id: string) => {
+  const handleCancel = async (id: string) => {
     Alert.alert(
       'Cancel Download',
       'Are you sure you want to cancel this download?',
@@ -37,7 +37,7 @@ export const DownloadsScreen: React.FC = () => {
         { text: 'No', style: 'cancel' },
         {
           text: 'Yes',
-          onPress: () => cancelDownload(id),
+          onPress: async () => await cancelDownload(id),
           style: 'destructive',
         },
       ]
