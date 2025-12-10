@@ -95,6 +95,10 @@ export const HomeScreen: React.FC = () => {
     await DownloadManager.downloadFile(url, filename, downloadFolderUri);
   };
 
+  const handleStreamVideo = (url: string, title: string) => {
+    navigation.navigate('VideoPlayer' as never, { videoUrl: url, title } as never);
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <CustomWebView
@@ -106,6 +110,7 @@ export const HomeScreen: React.FC = () => {
           setCanGoBack(back);
           setCanGoForward(forward);
         }}
+        onStreamVideo={handleStreamVideo}
         webViewRef={webViewRef}
       />
       

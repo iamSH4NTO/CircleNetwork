@@ -1,14 +1,43 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { HomeScreen } from '../screens/HomeScreen';
 import { BillingScreen } from '../screens/BillingScreen';
 import { DownloadsScreen } from '../screens/DownloadsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { VideoPlayerScreen } from '../screens/VideoPlayerScreen';
 
 const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
+
+const HomeStack = () => {
+  const { theme } = useTheme();
+  
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: theme.colors.card,
+        },
+        headerTintColor: theme.colors.text,
+      }}
+    >
+      <Stack.Screen 
+        name="HomeMain" 
+        component={HomeScreen}
+        options={{ title: 'Home' }}
+      />
+      <Stack.Screen 
+        name="VideoPlayer" 
+        component={VideoPlayerScreen}
+        options={{ title: 'Video Player' }}
+      />
+    </Stack.Navigator>
+  );
+};
 
 export const Navigation: React.FC = () => {
   const { theme } = useTheme();
@@ -31,8 +60,9 @@ export const Navigation: React.FC = () => {
       >
         <Tab.Screen
           name="Home"
-          component={HomeScreen}
+          component={HomeStack}
           options={{
+            headerShown: false,
             tabBarIcon: ({ color, size }) => (
               <MaterialIcons name="home" size={size} color={color} />
             ),

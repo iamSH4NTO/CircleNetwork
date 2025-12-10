@@ -23,6 +23,7 @@ interface CustomWebViewProps {
   onUrlChange?: (url: string) => void;
   onNavigationStateChange?: (canGoBack: boolean, canGoForward: boolean) => void;
   webViewRef?: React.RefObject<RNWebView>;
+  onStreamVideo?: (url: string, title: string) => void;
 }
 
 export const CustomWebView: React.FC<CustomWebViewProps> = ({
@@ -32,6 +33,7 @@ export const CustomWebView: React.FC<CustomWebViewProps> = ({
   onUrlChange,
   onNavigationStateChange,
   webViewRef: externalWebViewRef,
+  onStreamVideo,
 }) => {
   const internalWebViewRef = useRef<RNWebView>(null);
   const webViewRef = externalWebViewRef || internalWebViewRef;
@@ -95,6 +97,7 @@ export const CustomWebView: React.FC<CustomWebViewProps> = ({
       webViewRef.current?.stopLoading();
       
       const isVideo = ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v'].some(ext => url.toLowerCase().includes(ext));
+      const filename = url.split('/').pop() || 'file';
       
       Alert.alert(
         isVideo ? 'Video File' : 'Media File',
@@ -103,14 +106,17 @@ export const CustomWebView: React.FC<CustomWebViewProps> = ({
           {
             text: isVideo ? 'Stream' : 'Open',
             onPress: () => {
-              Linking.openURL(url);
+              if (isVideo && onStreamVideo) {
+                onStreamVideo(url, filename);
+              } else {
+                Linking.openURL(url);
+              }
             },
           },
           {
             text: 'Download',
             onPress: () => {
               if (onDownload) {
-                const filename = url.split('/').pop() || 'download';
                 onDownload(url, filename);
               }
             },

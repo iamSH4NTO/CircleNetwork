@@ -23,7 +23,12 @@
       },
       "permissions": [
         "INTERNET",
-        "ACCESS_NETWORK_STATE"
+        "ACCESS_NETWORK_STATE",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO",
+        "READ_MEDIA_AUDIO"
       ],
       "package": "com.circlenetwork.app",
       "edgeToEdgeEnabled": true,
@@ -33,8 +38,15 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow CircleNetwork to access your photos to save downloaded files.",
+          "savePhotosPermission": "Allow CircleNetwork to save downloaded files to your photo library.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ]
     ]
   }
 }
-
