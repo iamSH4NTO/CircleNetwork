@@ -11,6 +11,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useDownloadStore } from '../store/DownloadStore';
 import { DownloadItem } from '../types/download';
+import { Linking } from 'react-native';
 
 export const DownloadsScreen: React.FC = () => {
   const { theme } = useTheme();
@@ -114,6 +115,11 @@ export const DownloadsScreen: React.FC = () => {
           <Text style={[styles.fileSize, { color: theme.colors.secondary }]}>
             {item.fileSize > 0 ? `${formatFileSize(item.downloadedSize)} / ${formatFileSize(item.fileSize)}` : 'Unknown size'}
           </Text>
+          {item.localPath && (
+            <Text style={[styles.fileSize, { color: theme.colors.secondary }]} numberOfLines={1}>
+              {item.localPath}
+            </Text>
+          )}
         </View>
       </View>
 
@@ -170,6 +176,16 @@ export const DownloadsScreen: React.FC = () => {
               <Text style={styles.actionText}>Cancel</Text>
             </TouchableOpacity>
           </>
+        )}
+
+        {item.status === 'completed' && item.localPath && (
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
+            onPress={() => Linking.openURL(item.localPath!)}
+          >
+            <MaterialIcons name="open-in-new" size={20} color="#FFFFFF" />
+            <Text style={styles.actionText}>Open</Text>
+          </TouchableOpacity>
         )}
 
         {(item.status === 'completed' || item.status === 'cancelled' || item.status === 'failed') && (

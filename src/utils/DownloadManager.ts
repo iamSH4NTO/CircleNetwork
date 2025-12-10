@@ -1,4 +1,6 @@
 import * as FileSystem from 'expo-file-system';
+import { Paths, Directory } from 'expo-file-system';
+import * as LegacyFileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { Alert, Platform } from 'react-native';
 
@@ -24,11 +26,13 @@ export class DownloadManager {
       return null;
     }
 
-    const downloadDir = FileSystem.documentDirectory + 'Downloads/';
+    const downloadDir = new Directory(Paths.document, 'Downloads');
     
-    const dirInfo = await FileSystem.getInfoAsync(downloadDir);
-    if (!dirInfo.exists) {
-      await FileSystem.makeDirectoryAsync(downloadDir, { intermediates: true });
+    try {
+      // Check if directory exists, create if it doesn't
+      await downloadDir.create({ intermediates: true });
+    } catch (error) {
+      console.warn('Directory creation warning:', error);
     }
 
     Alert.alert(
@@ -37,38 +41,40 @@ export class DownloadManager {
       [{ text: 'OK' }]
     );
 
-    return downloadDir;
+    return downloadDir.uri;
   }
 
   static async downloadFile(
     url: string,
     filename: string,
     folderUri: string | null,
-    onProgress?: (progress: number, downloadedBytes: number, totalBytes: number) => void
+    onProgress?: (progress: number, downloadedBytes: number, totalBytes: number) => void,
+    onComplete?: (success: boolean, localPath?: string, error?: string) => void
   ): Promise<boolean> {
     try {
       const hasPermission = await this.requestPermissions();
       
       if (!hasPermission) {
-        Alert.alert(
-          'Permission Required',
-          'Storage permission is required to download files.'
-        );
+        const errorMsg = 'Storage permission is required to download files.';
+        Alert.alert('Permission Required', errorMsg);
+        onComplete?.(false, undefined, errorMsg);
         return false;
       }
 
-      const downloadDir = FileSystem.documentDirectory + 'Downloads/';
-      const dirInfo = await FileSystem.getInfoAsync(downloadDir);
+      const downloadDir = new Directory(Paths.document, 'Downloads');
       
-      if (!dirInfo.exists) {
-        await FileSystem.makeDirectoryAsync(downloadDir, { intermediates: true });
+      try {
+        // Check if directory exists, create if it doesn't
+        await downloadDir.create({ intermediates: true });
+      } catch (error) {
+        console.warn('Directory creation warning:', error);
       }
 
-      const fileUri = downloadDir + filename;
+      const file = new Directory(Paths.document, 'Downloads').createFile(filename, null);
 
-      const downloadResumable = FileSystem.createDownloadResumable(
+      const downloadResumable = LegacyFileSystem.createDownloadResumable(
         url,
-        fileUri,
+        file.uri,
         {},
         (downloadProgress) => {
           const progress = (downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite) * 100;
@@ -86,8 +92,12 @@ export class DownloadManager {
       
       if (result) {
         if (Platform.OS === 'android') {
-          const asset = await MediaLibrary.createAssetAsync(result.uri);
-          await MediaLibrary.createAlbumAsync('CircleNetwork', asset, false);
+          try {
+            const asset = await MediaLibrary.createAssetAsync(result.uri);
+            await MediaLibrary.createAlbumAsync('CircleNetwork', asset, false);
+          } catch (mediaError) {
+            console.warn('Failed to add to media library:', mediaError);
+          }
         }
 
         Alert.alert(
@@ -95,13 +105,19 @@ export class DownloadManager {
           `${filename} has been downloaded successfully!`,
           [{ text: 'OK' }]
         );
+        
+        onComplete?.(true, result.uri);
         return true;
       }
 
+      const errorMsg = 'Download completed but result is empty';
+      onComplete?.(false, undefined, errorMsg);
       return false;
     } catch (error) {
       console.error('Download failed:', error);
-      Alert.alert('Download Failed', 'Could not download the file');
+      const errorMsg = error instanceof Error ? error.message : 'Could not download the file';
+      Alert.alert('Download Failed', errorMsg);
+      onComplete?.(false, undefined, errorMsg);
       return false;
     }
   }

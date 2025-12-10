@@ -19,7 +19,7 @@ export const HomeScreen: React.FC = () => {
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const { downloadFolderUri } = useSettingsStore();
-  const { addDownload } = useDownloadStore();
+  const { addDownload, updateDownload } = useDownloadStore();
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -84,7 +84,13 @@ export const HomeScreen: React.FC = () => {
   };
 
   const handleDownload = async (url: string, filename: string) => {
+    // Add download to store with initial state
     addDownload(url, filename);
+    
+    // Get the ID of the newly added download
+    const downloads = useDownloadStore.getState().downloads;
+    const newDownload = downloads.find(d => d.url === url && d.filename === filename);
+    const downloadId = newDownload?.id || '';
     
     Alert.alert(
       'Download Started',
@@ -92,7 +98,38 @@ export const HomeScreen: React.FC = () => {
       [{ text: 'OK' }]
     );
     
-    await DownloadManager.downloadFile(url, filename, downloadFolderUri);
+    // Start the download with progress and completion callbacks
+    await DownloadManager.downloadFile(
+      url, 
+      filename, 
+      downloadFolderUri,
+      (progress, downloadedBytes, totalBytes) => {
+        // Update download progress in store
+        if (downloadId) {
+          updateDownload(downloadId, {
+            progress,
+            downloadedSize: downloadedBytes,
+            fileSize: totalBytes,
+          });
+        }
+      },
+      (success, localPath, error) => {
+        // Update download completion status in store
+        if (downloadId && success) {
+          updateDownload(downloadId, {
+            status: 'completed',
+            localPath,
+            endTime: Date.now(),
+          });
+        } else if (downloadId) {
+          updateDownload(downloadId, {
+            status: 'failed',
+            error: error || 'Unknown error occurred',
+            endTime: Date.now(),
+          });
+        }
+      }
+    );
   };
 
   const handleStreamVideo = (url: string, title: string) => {
