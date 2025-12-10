@@ -1,6 +1,5 @@
 import * as FileSystem from 'expo-file-system';
-import { Paths, Directory } from 'expo-file-system';
-import { EncodingType } from 'expo-file-system/src/ExpoFileSystem.types';
+import { Paths, Directory, File } from 'expo-file-system';
 import * as LegacyFileSystem from 'expo-file-system/legacy';
 import { StorageAccessFramework } from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
@@ -10,7 +9,13 @@ export class DownloadManager {
   static async requestPermissions(): Promise<boolean> {
     try {
       const { status } = await MediaLibrary.requestPermissionsAsync();
-      return status === 'granted';
+      if (status === 'granted') {
+        console.log('Storage permissions granted');
+        return true;
+      } else {
+        console.log('Storage permissions denied');
+        return false;
+      }
     } catch (error) {
       console.error('Permission request failed:', error);
       return false;
@@ -50,8 +55,11 @@ export class DownloadManager {
       const downloadDir = new Directory(Paths.document, 'Downloads');
       try {
         await downloadDir.create({ intermediates: true });
-      } catch (error) {
-        console.warn('Directory creation warning:', error);
+      } catch (error: any) {
+        // Ignore error if directory already exists
+        if (!(error.message && error.message.includes('it already exists'))) {
+          console.warn('Directory creation warning:', error);
+        }
       }
       
       Alert.alert(
@@ -80,7 +88,7 @@ export class DownloadManager {
     folderUri: string | null,
     onProgress?: (progress: number, downloadedBytes: number, totalBytes: number) => void,
     onComplete?: (success: boolean, localPath?: string, error?: string) => void
-  ): Promise<boolean> {
+  ): Promise<any> { // Return the download task for pause/resume control
     try {
       const hasPermission = await this.requestPermissions();
       
@@ -88,39 +96,143 @@ export class DownloadManager {
         const errorMsg = 'Storage permission is required to download files.';
         Alert.alert('Permission Required', errorMsg);
         onComplete?.(false, undefined, errorMsg);
-        return false;
+        return null;
       }
 
       // Sanitize the filename
       const sanitizedFilename = this.sanitizeFilename(filename);
 
-      // Use the provided folder URI if available, otherwise use default
-      let fileUri: string;
-      
       if (Platform.OS === 'android') {
-        // For Android, handle SAF URIs properly
-        let targetDirUri: string;
+        // For Android, directly download to the selected folder using StorageAccessFramework
+        // This avoids memory issues with large files
+        let targetFolderUri: string;
         
         if (folderUri) {
-          // Use the user-selected folder
-          targetDirUri = folderUri;
+          targetFolderUri = folderUri;
         } else {
-          // Fallback to default Downloads directory
-          targetDirUri = StorageAccessFramework.getUriForDirectoryInRoot('Download');
+          // Fallback to default Downloads directory via SAF
+          targetFolderUri = StorageAccessFramework.getUriForDirectoryInRoot('Download');
         }
         
-        // For Android, we'll download to app's document directory first, then move to target
-        const tempDir = new Directory(Paths.document, 'Downloads');
         try {
-          await tempDir.create({ intermediates: true });
-        } catch (error) {
-          console.warn('Temp directory creation warning:', error);
+          console.log(`Creating file in folder: ${targetFolderUri}, filename: ${sanitizedFilename}`);
+          
+          // Create file in the target directory using StorageAccessFramework
+          const targetFileUri = await StorageAccessFramework.createFileAsync(
+            targetFolderUri,
+            sanitizedFilename,
+            'application/octet-stream'
+          );
+          
+          console.log(`File created successfully at: ${targetFileUri}`);
+          
+          // Directly download to the target file
+          const downloadResumable = LegacyFileSystem.createDownloadResumable(
+            url,
+            targetFileUri,
+            {},
+            (downloadProgress) => {
+              const progress = (downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite) * 100;
+              if (onProgress) {
+                onProgress(
+                  progress,
+                  downloadProgress.totalBytesWritten,
+                  downloadProgress.totalBytesExpectedToWrite
+                );
+              }
+            }
+          );
+
+          // Start the download
+          console.log(`Starting download from: ${url}`);
+          const result = await downloadResumable.downloadAsync();
+          
+          if (result) {
+            console.log(`Download completed successfully. File size: ${result.headers['content-length'] || 'unknown'}`);
+            
+            try {
+              const asset = await MediaLibrary.createAssetAsync(result.uri);
+              await MediaLibrary.createAlbumAsync('CircleNetwork', asset, false);
+            } catch (mediaError) {
+              console.warn('Failed to add to media library:', mediaError);
+            }
+
+            Alert.alert(
+              'Download Complete',
+              `${sanitizedFilename} has been downloaded successfully!`,
+              [{ text: 'OK' }]
+            );
+            
+            onComplete?.(true, result.uri);
+            return downloadResumable; // Return the task for pause/resume control
+          }
+        } catch (error: any) {
+          console.error('Download failed:', error);
+          // If there's a conflict or other error, try with a timestamp
+          if (error.message && (error.message.includes('exists') || error.message.includes('Failed to create file'))) {
+            const nameParts = sanitizedFilename.split('.');
+            const extension = nameParts.length > 1 ? `.${nameParts.pop()}` : '';
+            const nameWithoutExtension = nameParts.join('.');
+            const timestamp = Date.now();
+            const newFilename = `${nameWithoutExtension}_${timestamp}${extension}`;
+            
+            try {
+              console.log(`File exists, creating with timestamp: ${newFilename}`);
+              
+              // Create file with timestamp
+              const targetFileUri = await StorageAccessFramework.createFileAsync(
+                targetFolderUri,
+                newFilename,
+                'application/octet-stream'
+              );
+              
+              // Directly download to the target file
+              const downloadResumable = LegacyFileSystem.createDownloadResumable(
+                url,
+                targetFileUri,
+                {},
+                (downloadProgress) => {
+                  const progress = (downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite) * 100;
+                  if (onProgress) {
+                    onProgress(
+                      progress,
+                      downloadProgress.totalBytesWritten,
+                      downloadProgress.totalBytesExpectedToWrite
+                    );
+                  }
+                }
+              );
+
+              // Start the download
+              const result = await downloadResumable.downloadAsync();
+              
+              if (result) {
+                try {
+                  const asset = await MediaLibrary.createAssetAsync(result.uri);
+                  await MediaLibrary.createAlbumAsync('CircleNetwork', asset, false);
+                } catch (mediaError) {
+                  console.warn('Failed to add to media library:', mediaError);
+                }
+
+                Alert.alert(
+                  'Download Complete',
+                  `${newFilename} has been downloaded successfully!`,
+                  [{ text: 'OK' }]
+                );
+                
+                onComplete?.(true, result.uri);
+                return downloadResumable; // Return the task for pause/resume control
+              }
+            } catch (retryError) {
+              console.error('Retry download failed:', retryError);
+              throw retryError;
+            }
+          } else {
+            throw error;
+          }
         }
-        
-        const tempFile = tempDir.createFile(sanitizedFilename, null);
-        fileUri = tempFile.uri;
       } else {
-        // For iOS, use traditional approach
+        // For iOS, use traditional approach with app storage
         let downloadDir: Directory;
         
         if (folderUri) {
@@ -133,96 +245,101 @@ export class DownloadManager {
         
         try {
           await downloadDir.create({ intermediates: true });
-        } catch (error) {
-          console.warn('Directory creation warning:', error);
+        } catch (error: any) {
+          // Ignore error if directory already exists
+          if (!(error.message && error.message.includes('it already exists'))) {
+            console.warn('Directory creation warning:', error);
+          }
         }
         
+        // Check for file conflict
         const file = downloadDir.createFile(sanitizedFilename, null);
-        fileUri = file.uri;
-      }
-
-      const downloadResumable = LegacyFileSystem.createDownloadResumable(
-        url,
-        fileUri,
-        {},
-        (downloadProgress) => {
-          const progress = (downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite) * 100;
-          if (onProgress) {
-            onProgress(
-              progress,
-              downloadProgress.totalBytesWritten,
-              downloadProgress.totalBytesExpectedToWrite
-            );
-          }
-        }
-      );
-
-      const result = await downloadResumable.downloadAsync();
-      
-      if (result) {
-        // For Android, move the file to the selected directory if needed
-        if (Platform.OS === 'android' && folderUri) {
-          try {
-            // Read the downloaded file
-            const fileContent = await FileSystem.readAsStringAsync(result.uri, {
-              encoding: EncodingType.Base64
-            });
-            
-            // Create file in the target directory using StorageAccessFramework
-            const targetFileUri = await StorageAccessFramework.createFileAsync(
-              folderUri,
-              sanitizedFilename,
-              'application/octet-stream'
-            );
-            
-            // Write content to the target file
-            await FileSystem.writeAsStringAsync(targetFileUri, fileContent, {
-              encoding: EncodingType.Base64
-            });
-            
-            // Delete the temporary file
-            try {
-              await FileSystem.deleteAsync(result.uri);
-            } catch (deleteError) {
-              console.warn('Failed to delete temporary file:', deleteError);
+        if (file.exists) {
+          // File exists, generate a new filename with timestamp
+          const nameParts = sanitizedFilename.split('.');
+          const extension = nameParts.length > 1 ? `.${nameParts.pop()}` : '';
+          const nameWithoutExtension = nameParts.join('.');
+          const timestamp = Date.now();
+          const newFilename = `${nameWithoutExtension}_${timestamp}${extension}`;
+          
+          console.log(`File exists, creating with timestamp: ${newFilename}`);
+          
+          // Proceed with download using new filename
+          const downloadFile = downloadDir.createFile(newFilename, null);
+          const downloadResumable = LegacyFileSystem.createDownloadResumable(
+            url,
+            downloadFile.uri,
+            {},
+            (downloadProgress) => {
+              const progress = (downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite) * 100;
+              if (onProgress) {
+                onProgress(
+                  progress,
+                  downloadProgress.totalBytesWritten,
+                  downloadProgress.totalBytesExpectedToWrite
+                );
+              }
             }
-            
-            // Update result URI to point to the target file
-            result.uri = targetFileUri;
-          } catch (moveError) {
-            console.error('Failed to move file to selected directory:', moveError);
-            // If moving fails, keep the file in the temp location
-          }
-        }
-        
-        if (Platform.OS === 'android') {
-          try {
-            const asset = await MediaLibrary.createAssetAsync(result.uri);
-            await MediaLibrary.createAlbumAsync('CircleNetwork', asset, false);
-          } catch (mediaError) {
-            console.warn('Failed to add to media library:', mediaError);
-          }
-        }
+          );
 
-        Alert.alert(
-          'Download Complete',
-          `${sanitizedFilename} has been downloaded successfully!`,
-          [{ text: 'OK' }]
-        );
-        
-        onComplete?.(true, result.uri);
-        return true;
+          // Start the download
+          const result = await downloadResumable.downloadAsync();
+          
+          if (result) {
+            Alert.alert(
+              'Download Complete',
+              `${newFilename} has been downloaded successfully!`,
+              [{ text: 'OK' }]
+            );
+            
+            onComplete?.(true, result.uri);
+            return downloadResumable; // Return the task for pause/resume control
+          }
+        } else {
+          // No conflict, proceed with original filename
+          const downloadFile = downloadDir.createFile(sanitizedFilename, null);
+          
+          const downloadResumable = LegacyFileSystem.createDownloadResumable(
+            url,
+            downloadFile.uri,
+            {},
+            (downloadProgress) => {
+              const progress = (downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite) * 100;
+              if (onProgress) {
+                onProgress(
+                  progress,
+                  downloadProgress.totalBytesWritten,
+                  downloadProgress.totalBytesExpectedToWrite
+                );
+              }
+            }
+          );
+
+          // Start the download
+          const result = await downloadResumable.downloadAsync();
+          
+          if (result) {
+            Alert.alert(
+              'Download Complete',
+              `${sanitizedFilename} has been downloaded successfully!`,
+              [{ text: 'OK' }]
+            );
+            
+            onComplete?.(true, result.uri);
+            return downloadResumable; // Return the task for pause/resume control
+          }
+        }
       }
 
       const errorMsg = 'Download completed but result is empty';
       onComplete?.(false, undefined, errorMsg);
-      return false;
+      return null;
     } catch (error) {
       console.error('Download failed:', error);
       const errorMsg = error instanceof Error ? error.message : 'Could not download the file';
       Alert.alert('Download Failed', errorMsg);
       onComplete?.(false, undefined, errorMsg);
-      return false;
+      return null;
     }
   }
 

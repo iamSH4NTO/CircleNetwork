@@ -1,4 +1,4 @@
-import React, { useState, useRef, useLayoutEffect } from 'react';
+import React, { useState, useRef, useLayoutEffect, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { WebView as RNWebView } from 'react-native-webview';
@@ -13,13 +13,22 @@ import { useDownloadStore } from '../store/DownloadStore';
 
 export const HomeScreen: React.FC = () => {
   const { theme } = useTheme();
-  const navigation = useNavigation();
+  const navigation: any = useNavigation();
   const webViewRef = useRef<RNWebView>(null);
   const [currentUrl, setCurrentUrl] = useState('http://new.circleftp.net/');
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const { downloadFolderUri } = useSettingsStore();
-  const { addDownload, updateDownload } = useDownloadStore();
+  const { addDownload, updateDownload, setDownloadTask } = useDownloadStore();
+
+  // Request permissions when component mounts
+  useEffect(() => {
+    const requestPermissions = async () => {
+      await DownloadManager.requestPermissions();
+    };
+    
+    requestPermissions();
+  }, []);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -92,14 +101,8 @@ export const HomeScreen: React.FC = () => {
     const newDownload = downloads.find(d => d.url === url && d.filename === filename);
     const downloadId = newDownload?.id || '';
     
-    Alert.alert(
-      'Download Started',
-      `${filename} has been added to downloads`,
-      [{ text: 'OK' }]
-    );
-    
     // Start the download with progress and completion callbacks
-    await DownloadManager.downloadFile(
+    const downloadTask = await DownloadManager.downloadFile(
       url, 
       filename, 
       downloadFolderUri,
@@ -121,19 +124,36 @@ export const HomeScreen: React.FC = () => {
             localPath,
             endTime: Date.now(),
           });
-        } else if (downloadId) {
+          Alert.alert(
+            'Download Complete',
+            `${filename} has been downloaded successfully!`,
+            [{ text: 'OK' }]
+          );
+        } else if (downloadId && !success) {
           updateDownload(downloadId, {
             status: 'failed',
             error: error || 'Unknown error occurred',
             endTime: Date.now(),
           });
+          if (error && error !== 'Download cancelled by user') {
+            Alert.alert(
+              'Download Failed',
+              error,
+              [{ text: 'OK' }]
+            );
+          }
         }
       }
     );
+    
+    // Store the download task for pause/resume control
+    if (downloadId && downloadTask) {
+      setDownloadTask(downloadId, downloadTask);
+    }
   };
 
   const handleStreamVideo = (url: string, title: string) => {
-    navigation.navigate('VideoPlayer' as never, { videoUrl: url, title } as never);
+    navigation.navigate('VideoPlayer', { videoUrl: url, title });
   };
 
   return (
@@ -148,7 +168,7 @@ export const HomeScreen: React.FC = () => {
           setCanGoForward(forward);
         }}
         onStreamVideo={handleStreamVideo}
-        webViewRef={webViewRef}
+        webViewRef={webViewRef as any}
       />
       
       <TouchableOpacity

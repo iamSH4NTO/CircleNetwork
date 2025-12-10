@@ -6,6 +6,7 @@ interface DownloadState {
   downloads: DownloadItem[];
   maxThreads: number;
   activeDownloads: number;
+  downloadTasks: Map<string, any>; // Store references to download tasks
   
   addDownload: (url: string, filename: string) => void;
   updateDownload: (id: string, updates: Partial<DownloadItem>) => void;
@@ -16,13 +17,16 @@ interface DownloadState {
   setMaxThreads: (threads: number) => Promise<void>;
   loadDownloads: () => Promise<void>;
   saveDownloads: () => Promise<void>;
+  setDownloadTask: (id: string, task: any) => void;
+  clearDownloadTask: (id: string) => void;
 }
 
 export const useDownloadStore = create<DownloadState>((set, get) => ({
   downloads: [],
   maxThreads: 3,
   activeDownloads: 0,
-
+  downloadTasks: new Map(),
+  
   addDownload: (url: string, filename: string) => {
     const newDownload: DownloadItem = {
       id: Date.now().toString(),
@@ -53,6 +57,18 @@ export const useDownloadStore = create<DownloadState>((set, get) => ({
   },
 
   removeDownload: (id: string) => {
+    // Cancel the download if it's active
+    const { downloadTasks } = get();
+    const task = downloadTasks.get(id);
+    if (task) {
+      try {
+        task.cancel();
+      } catch (error) {
+        console.warn('Failed to cancel download task:', error);
+      }
+      get().clearDownloadTask(id);
+    }
+    
     set((state) => ({
       downloads: state.downloads.filter((d) => d.id !== id),
     }));
@@ -60,9 +76,20 @@ export const useDownloadStore = create<DownloadState>((set, get) => ({
   },
 
   pauseDownload: (id: string) => {
+    // Pause the download task if it exists
+    const { downloadTasks } = get();
+    const task = downloadTasks.get(id);
+    if (task) {
+      try {
+        task.pause();
+      } catch (error) {
+        console.warn('Failed to pause download task:', error);
+      }
+    }
+    
     set((state) => ({
       downloads: state.downloads.map((d) =>
-        d.id === id ? { ...d, status: 'paused' as const } : d
+        d.id === id ? { ...d, status: 'paused' } : d
       ),
       activeDownloads: Math.max(0, state.activeDownloads - 1),
     }));
@@ -70,9 +97,20 @@ export const useDownloadStore = create<DownloadState>((set, get) => ({
   },
 
   resumeDownload: (id: string) => {
+    // Resume the download task if it exists
+    const { downloadTasks } = get();
+    const task = downloadTasks.get(id);
+    if (task) {
+      try {
+        task.resume();
+      } catch (error) {
+        console.warn('Failed to resume download task:', error);
+      }
+    }
+    
     set((state) => ({
       downloads: state.downloads.map((d) =>
-        d.id === id ? { ...d, status: 'downloading' as const } : d
+        d.id === id ? { ...d, status: 'downloading' } : d
       ),
       activeDownloads: state.activeDownloads + 1,
     }));
@@ -80,9 +118,21 @@ export const useDownloadStore = create<DownloadState>((set, get) => ({
   },
 
   cancelDownload: (id: string) => {
+    // Cancel the download task if it exists
+    const { downloadTasks } = get();
+    const task = downloadTasks.get(id);
+    if (task) {
+      try {
+        task.cancel();
+      } catch (error) {
+        console.warn('Failed to cancel download task:', error);
+      }
+      get().clearDownloadTask(id);
+    }
+    
     set((state) => ({
       downloads: state.downloads.map((d) =>
-        d.id === id ? { ...d, status: 'cancelled' as const } : d
+        d.id === id ? { ...d, status: 'cancelled' } : d
       ),
       activeDownloads: Math.max(0, state.activeDownloads - 1),
     }));
@@ -128,5 +178,21 @@ export const useDownloadStore = create<DownloadState>((set, get) => ({
     } catch (error) {
       console.error('Failed to save downloads:', error);
     }
+  },
+
+  setDownloadTask: (id: string, task: any) => {
+    set((state) => {
+      const newTasks = new Map(state.downloadTasks);
+      newTasks.set(id, task);
+      return { downloadTasks: newTasks };
+    });
+  },
+
+  clearDownloadTask: (id: string) => {
+    set((state) => {
+      const newTasks = new Map(state.downloadTasks);
+      newTasks.delete(id);
+      return { downloadTasks: newTasks };
+    });
   },
 }));
