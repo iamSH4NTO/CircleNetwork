@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -66,6 +66,22 @@ export const SettingsScreen: React.FC = () => {
 
   const handleDevLink = () => {
     Linking.openURL('https://github.com/iamsh4nto');
+  };
+
+  // Function to extract folder name from URI for display
+  const getFolderDisplayName = (uri: string | null) => {
+    if (!uri) return 'Not selected';
+    
+    if (uri.includes('Download')) {
+      return 'Downloads folder';
+    } else if (uri.startsWith('file://')) {
+      const path = uri.replace('file://', '');
+      const parts = path.split('/');
+      return parts[parts.length - 1] || path;
+    } else {
+      // For SAF URIs, show a simplified version
+      return 'Selected folder';
+    }
   };
 
   return (
@@ -146,7 +162,7 @@ export const SettingsScreen: React.FC = () => {
                 style={[styles.settingDescription, { color: theme.colors.secondary }]}
                 numberOfLines={1}
               >
-                {downloadFolderUri ? 'Folder selected' : 'Not selected'}
+                {getFolderDisplayName(downloadFolderUri)}
               </Text>
             </View>
             <MaterialIcons name="chevron-right" size={24} color={theme.colors.secondary} />
@@ -243,6 +259,5 @@ const styles = StyleSheet.create({
   },
   devText: {
     fontSize: 14,
-    textAlign: 'center',
   },
 });
