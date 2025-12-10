@@ -5,11 +5,12 @@ export interface DownloadItem {
   fileSize: number;
   downloadedSize: number;
   progress: number;
-  status: 'downloading' | 'paused' | 'completed' | 'failed' | 'cancelled';
+  status: 'downloading' | 'paused' | 'completed' | 'failed' | 'cancelled' | 'queued';
   startTime: number;
   endTime?: number;
   error?: string;
   localPath?: string;
+  resumeData?: string;
 }
 
 export interface DownloadSettings {

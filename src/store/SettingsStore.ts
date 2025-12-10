@@ -1,32 +1,32 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import * as FileSystem from 'expo-file-system';
+
 interface SettingsState {
-  downloadFolderUri: string | null;
-  setDownloadFolderUri: (uri: string | null) => Promise<void>;
+  downloadPath: string;
+  setDownloadPath: (path: string) => Promise<void>;
   loadSettings: () => Promise<void>;
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
-  downloadFolderUri: null,
+  downloadPath: FileSystem.documentDirectory + 'downloads/',
 
-  setDownloadFolderUri: async (uri: string | null) => {
+  setDownloadPath: async (path: string) => {
     try {
-      if (uri) {
-        await AsyncStorage.setItem('downloadFolderUri', uri);
-      } else {
-        await AsyncStorage.removeItem('downloadFolderUri');
-      }
-      set({ downloadFolderUri: uri });
+      await AsyncStorage.setItem('downloadPath', path);
+      set({ downloadPath: path });
     } catch (error) {
-      console.error('Failed to save download folder URI:', error);
+      console.error('Failed to save download path:', error);
     }
   },
 
   loadSettings: async () => {
     try {
-      const uri = await AsyncStorage.getItem('downloadFolderUri');
-      set({ downloadFolderUri: uri });
+      const path = await AsyncStorage.getItem('downloadPath');
+      if (path) {
+        set({ downloadPath: path });
+      }
     } catch (error) {
       console.error('Failed to load settings:', error);
     }
