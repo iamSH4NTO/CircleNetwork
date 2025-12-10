@@ -33,11 +33,8 @@ export class DownloadManager {
       return null;
     }
 
-    // For Android, let users select a folder using StorageAccessFramework
-    // For iOS, we'll use the app's document directory
     if (Platform.OS === 'android') {
       try {
-        // Request directory permissions from user
         const permissions = await StorageAccessFramework.requestDirectoryPermissionsAsync();
         if (permissions.granted) {
           return permissions.directoryUri;
@@ -51,12 +48,10 @@ export class DownloadManager {
         return null;
       }
     } else {
-      // For iOS, use the app's document directory
       const downloadDir = new Directory(Paths.document, 'Downloads');
       try {
         await downloadDir.create({ intermediates: true });
       } catch (error: any) {
-        // Ignore error if directory already exists
         if (!(error.message && error.message.includes('it already exists'))) {
           console.warn('Directory creation warning:', error);
         }
@@ -72,67 +67,98 @@ export class DownloadManager {
     }
   }
 
-  // Helper function to sanitize filename
   static sanitizeFilename(filename: string): string {
-    // Remove or replace invalid characters
     return filename
-      .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_') // Replace invalid characters with underscore
-      .replace(/^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i, '_$1$2') // Replace reserved names
-      .replace(/[\s.]+$/, '') // Remove trailing spaces and periods
-      .substring(0, 255); // Limit length
+      .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
+      .replace(/^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i, '_$1$2')
+      .replace(/[\s.]+$/, '')
+      .substring(0, 255);
   }
 
   static async downloadFile(
     url: string,
     filename: string,
     folderUri: string | null,
-    onProgress?: (progress: number, downloadedBytes: number, totalBytes: number) => void,
-    onComplete?: (success: boolean, localPath?: string, error?: string) => void
-  ): Promise<any> { // Return the download task for pause/resume control
+    onProgress?: (progress: number, downloadedBytes: number, totalBytes: number) => void
+  ): Promise<{ task: LegacyFileSystem.DownloadResumable, finalUri?: string } | null> {
     try {
       const hasPermission = await this.requestPermissions();
       
       if (!hasPermission) {
         const errorMsg = 'Storage permission is required to download files.';
         Alert.alert('Permission Required', errorMsg);
-        onComplete?.(false, undefined, errorMsg);
         return null;
       }
 
-      // Sanitize the filename
       const sanitizedFilename = this.sanitizeFilename(filename);
 
-      if (Platform.OS === 'android') {
-        // For Android, download to app storage first, then copy to selected folder
-        // This is the most reliable approach for Storage Access Framework
-        
-        // Download to app's document directory first
+      if (Platform.OS === 'android' && folderUri) {
         const tempDir = new Directory(Paths.document, 'Downloads');
         try {
           await tempDir.create({ intermediates: true });
         } catch (error: any) {
-          // Ignore error if directory already exists
           if (!(error.message && error.message.includes('it already exists'))) {
             console.warn('Temp directory creation warning:', error);
           }
         }
         
-        // Check for file conflict in temp directory
-        const tempFile = tempDir.createFile(sanitizedFilename, null);
-        let finalTempFilename = sanitizedFilename;
+        const tempFile = tempDir.createFile(sanitizedFilename);
+        const downloadResumable = LegacyFileSystem.createDownloadResumable(
+          url,
+          tempFile.uri,
+          {},
+          (downloadProgress) => {
+            const progress = (downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite) * 100;
+            if (onProgress) {
+              onProgress(
+                progress,
+                downloadProgress.totalBytesWritten,
+                downloadProgress.totalBytesExpectedToWrite
+              );
+            }
+          }
+        );
+
+        const result = await downloadResumable.downloadAsync();
+        if (result) {
+            const finalFileUri = await StorageAccessFramework.createFileAsync(folderUri, sanitizedFilename, result.mimeType || 'application/octet-stream');
+            const content = await FileSystem.readAsStringAsync(result.uri, { encoding: FileSystem.EncodingType.Base64 });
+            await FileSystem.writeAsStringAsync(finalFileUri, content, { encoding: FileSystem.EncodingType.Base64 });
+            await FileSystem.deleteAsync(result.uri); // remove temp file
+            return { task: downloadResumable, finalUri: finalFileUri };
+        }
+        return { task: downloadResumable };
+
+
+      } else {
+        let downloadDir: Directory;
         
-        if (tempFile.exists) {
-          // File exists in temp directory, generate a new filename with timestamp
+        if (folderUri) {
+          downloadDir = new Directory(folderUri);
+        } else {
+          downloadDir = new Directory(Paths.document, 'Downloads');
+        }
+        
+        try {
+          await downloadDir.create({ intermediates: true });
+        } catch (error: any) {
+          if (!(error.message && error.message.includes('it already exists'))) {
+            console.warn('Directory creation warning:', error);
+          }
+        }
+        
+        const file = downloadDir.createFile(sanitizedFilename);
+        let finalFilename = sanitizedFilename;
+
+        if (file.exists) {
           const nameParts = sanitizedFilename.split('.');
           const extension = nameParts.length > 1 ? `.${nameParts.pop()}` : '';
           const nameWithoutExtension = nameParts.join('.');
           const timestamp = Date.now();
-          finalTempFilename = `${nameWithoutExtension}_${timestamp}${extension}`;
+          finalFilename = `${nameWithoutExtension}_${timestamp}${extension}`;
         }
         
-        const downloadFile = tempDir.createFile(finalTempFilename, null);
-        
-        // Create download resumable task
+        const downloadFile = downloadDir.createFile(finalFilename);
         const downloadResumable = LegacyFileSystem.createDownloadResumable(
           url,
           downloadFile.uri,
@@ -148,92 +174,12 @@ export class DownloadManager {
             }
           }
         );
-
-        // Return the task immediately for pause/resume control
-        // The caller will handle starting the download
-        return downloadResumable;
-      } else {
-        // For iOS, use traditional approach with app storage
-        let downloadDir: Directory;
-        
-        if (folderUri) {
-          // Use the user-selected folder
-          downloadDir = new Directory(folderUri);
-        } else {
-          // Fallback to app's document directory
-          downloadDir = new Directory(Paths.document, 'Downloads');
-        }
-        
-        try {
-          await downloadDir.create({ intermediates: true });
-        } catch (error: any) {
-          // Ignore error if directory already exists
-          if (!(error.message && error.message.includes('it already exists'))) {
-            console.warn('Directory creation warning:', error);
-          }
-        }
-        
-        // Check for file conflict
-        const file = downloadDir.createFile(sanitizedFilename, null);
-        if (file.exists) {
-          // File exists, generate a new filename with timestamp
-          const nameParts = sanitizedFilename.split('.');
-          const extension = nameParts.length > 1 ? `.${nameParts.pop()}` : '';
-          const nameWithoutExtension = nameParts.join('.');
-          const timestamp = Date.now();
-          const newFilename = `${nameWithoutExtension}_${timestamp}${extension}`;
-          
-          console.log(`File exists, creating with timestamp: ${newFilename}`);
-          
-          // Proceed with download using new filename
-          const downloadFile = downloadDir.createFile(newFilename, null);
-          const downloadResumable = LegacyFileSystem.createDownloadResumable(
-            url,
-            downloadFile.uri,
-            {},
-            (downloadProgress) => {
-              const progress = (downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite) * 100;
-              if (onProgress) {
-                onProgress(
-                  progress,
-                  downloadProgress.totalBytesWritten,
-                  downloadProgress.totalBytesExpectedToWrite
-                );
-              }
-            }
-          );
-
-          // Return the task immediately for pause/resume control
-          return downloadResumable;
-        } else {
-          // No conflict, proceed with original filename
-          const downloadFile = downloadDir.createFile(sanitizedFilename, null);
-          
-          const downloadResumable = LegacyFileSystem.createDownloadResumable(
-            url,
-            downloadFile.uri,
-            {},
-            (downloadProgress) => {
-              const progress = (downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite) * 100;
-              if (onProgress) {
-                onProgress(
-                  progress,
-                  downloadProgress.totalBytesWritten,
-                  downloadProgress.totalBytesExpectedToWrite
-                );
-              }
-            }
-          );
-
-          // Return the task immediately for pause/resume control
-          return downloadResumable;
-        }
+        return { task: downloadResumable, finalUri: downloadFile.uri };
       }
     } catch (error) {
       console.error('Download failed:', error);
       const errorMsg = error instanceof Error ? error.message : 'Could not download the file';
       Alert.alert('Download Failed', errorMsg);
-      onComplete?.(false, undefined, errorMsg);
       return null;
     }
   }
@@ -246,33 +192,6 @@ export class DownloadManager {
       return filename || 'download';
     } catch {
       return 'download';
-    }
-  }
-
-  static async getDownloadStatus(task: any): Promise<'running' | 'paused' | 'done' | 'error' | 'unknown'> {
-    try {
-      if (task && typeof task.savable === 'function') {
-        const savable = await task.savable();
-        if (savable) {
-          return 'paused';
-        }
-      }
-      return 'unknown';
-    } catch (error) {
-      console.warn('Failed to get download status:', error);
-      return 'unknown';
-    }
-  }
-
-  static async restartDownload(task: any): Promise<any> {
-    try {
-      if (task && typeof task.resume === 'function') {
-        return await task.resume();
-      }
-      return null;
-    } catch (error) {
-      console.warn('Failed to restart download:', error);
-      return null;
     }
   }
 }
