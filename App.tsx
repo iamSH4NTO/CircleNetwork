@@ -5,7 +5,6 @@ import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { useSettingsStore } from './src/store/SettingsStore';
 import { Navigation } from './src/navigation/Navigation';
 import { SplashScreen } from './src/components/SplashScreen';
-import { DownloadManager } from './src/utils/DownloadManager';
 
 SplashScreenExpo.preventAutoHideAsync();
 
@@ -19,10 +18,6 @@ function AppContent() {
     async function prepare() {
       try {
         await loadSettings();
-        
-        // Request storage permissions on app startup
-        await DownloadManager.requestPermissions();
-        
         await new Promise(resolve => setTimeout(resolve, 1000));
       } catch (e) {
         console.warn(e);

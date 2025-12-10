@@ -8,46 +8,13 @@ import {
   Switch,
   Linking,
   Alert,
-  Platform,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
 import { useSettingsStore } from "../store/SettingsStore";
-import { useDownloadStore } from "../store/DownloadStore";
-import { DownloadManager } from "../utils/DownloadManager";
 
 export const SettingsScreen: React.FC = () => {
   const { theme, isDark, toggleTheme } = useTheme();
-  const { downloadFolderUri, setDownloadFolderUri } = useSettingsStore();
-  const { maxThreads, setMaxThreads } = useDownloadStore();
-
-  const getFolderDisplayName = (uri: string | null): string => {
-    if (!uri) {
-      return "Not selected";
-    }
-
-    if (Platform.OS === "android" && uri.startsWith("content://")) {
-      try {
-        const decodedUri = decodeURIComponent(uri);
-        const pathSegment = decodedUri.split("/tree/")[1];
-        if (pathSegment) {
-          const path = pathSegment.split(":").slice(1).join(":");
-          return path || "Selected folder";
-        }
-      } catch (e) {
-        // Fallback for any parsing errors
-      }
-      return "Selected folder";
-    }
-
-    if (uri.startsWith("file://")) {
-      const path = uri.replace("file://", "");
-      const parts = path.split("/");
-      return parts.filter((p) => p).pop() || path;
-    }
-
-    return uri;
-  };
 
   const handleShareApp = async () => {
     try {
@@ -67,26 +34,6 @@ export const SettingsScreen: React.FC = () => {
     } catch (error) {
       console.error("Share failed:", error);
     }
-  };
-
-  const handleSelectFolder = async () => {
-    const uri = await DownloadManager.selectDownloadFolder();
-    if (uri) {
-      await setDownloadFolderUri(uri);
-      const folderName = getFolderDisplayName(uri);
-      Alert.alert("Success", `Download folder selected: ${folderName}`);
-    }
-  };
-
-  const handleThreadsChange = () => {
-    Alert.alert("Download Threads", "Select maximum concurrent downloads", [
-      { text: "1 Thread", onPress: () => setMaxThreads(1) },
-      { text: "2 Threads", onPress: () => setMaxThreads(2) },
-      { text: "3 Threads", onPress: () => setMaxThreads(3) },
-      { text: "4 Threads", onPress: () => setMaxThreads(4) },
-      { text: "5 Threads", onPress: () => setMaxThreads(5) },
-      { text: "Cancel", style: "cancel" },
-    ]);
   };
 
   const handleDevLink = () => {
@@ -172,71 +119,6 @@ export const SettingsScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Download Section */}
-        <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
-          <View style={styles.cardHeader}>
-            <MaterialIcons
-              name="folder"
-              size={24}
-              color={theme.colors.primary}
-            />
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
-              Downloads
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.settingRow}
-            onPress={handleSelectFolder}
-          >
-            <View style={styles.settingInfo}>
-              <Text style={[styles.settingLabel, { color: theme.colors.text }]}>
-                Download Folder
-              </Text>
-              <Text
-                style={[
-                  styles.settingDescription,
-                  { color: theme.colors.secondary },
-                ]}
-                numberOfLines={1}
-              >
-                {getFolderDisplayName(downloadFolderUri)}
-              </Text>
-            </View>
-            <MaterialIcons
-              name="chevron-right"
-              size={24}
-              color={theme.colors.secondary}
-            />
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          <TouchableOpacity
-            style={styles.settingRow}
-            onPress={handleThreadsChange}
-          >
-            <View style={styles.settingInfo}>
-              <Text style={[styles.settingLabel, { color: theme.colors.text }]}>
-                Download Threads
-              </Text>
-              <Text
-                style={[
-                  styles.settingDescription,
-                  { color: theme.colors.secondary },
-                ]}
-              >
-                {maxThreads} concurrent download{maxThreads > 1 ? "s" : ""}
-              </Text>
-            </View>
-            <MaterialIcons
-              name="chevron-right"
-              size={24}
-              color={theme.colors.secondary}
-            />
-          </TouchableOpacity>
-        </View>
-
         {/* Developer Credit */}
         <TouchableOpacity style={styles.devCredit} onPress={handleDevLink}>
           <Text style={[styles.devText, { color: theme.colors.secondary }]}>
@@ -295,11 +177,6 @@ const styles = StyleSheet.create({
   },
   settingDescription: {
     fontSize: 14,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#E0E0E0",
-    marginVertical: 8,
   },
   devCredit: {
     alignItems: "center",

@@ -8,7 +8,6 @@ import {
   ScrollView,
   Linking,
   Alert,
-  TouchableOpacity,
 } from 'react-native';
 import { WebView as RNWebView } from 'react-native-webview';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -19,7 +18,6 @@ import { shouldOpenInBrowser } from '../utils/WebViewUtils';
 interface CustomWebViewProps {
   url: string;
   userAgent?: string;
-  onDownload?: (url: string, filename: string) => void;
   onUrlChange?: (url: string) => void;
   onNavigationStateChange?: (canGoBack: boolean, canGoForward: boolean) => void;
   webViewRef?: React.RefObject<RNWebView>;
@@ -29,7 +27,6 @@ interface CustomWebViewProps {
 export const CustomWebView: React.FC<CustomWebViewProps> = ({
   url,
   userAgent,
-  onDownload,
   onUrlChange,
   onNavigationStateChange,
   webViewRef: externalWebViewRef,
@@ -110,14 +107,6 @@ export const CustomWebView: React.FC<CustomWebViewProps> = ({
                 onStreamVideo(url, filename);
               } else {
                 Linking.openURL(url);
-              }
-            },
-          },
-          {
-            text: 'Download',
-            onPress: () => {
-              if (onDownload) {
-                onDownload(url, filename);
               }
             },
           },
@@ -279,19 +268,5 @@ const styles = StyleSheet.create({
   errorSubtext: {
     fontSize: 14,
     textAlign: 'center',
-  },
-  navBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderTopWidth: 1,
-  },
-  navButton: {
-    padding: 8,
-    borderRadius: 8,
-  },
-  navButtonDisabled: {
-    opacity: 0.3,
   },
 });

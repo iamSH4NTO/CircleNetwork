@@ -6,7 +6,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { HomeScreen } from '../screens/HomeScreen';
 import { BillingScreen } from '../screens/BillingScreen';
-import { DownloadsScreen } from '../screens/DownloadsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { VideoPlayerScreen } from '../screens/VideoPlayerScreen';
 
@@ -32,7 +31,7 @@ const HomeStack = () => {
       />
       <Stack.Screen 
         name="VideoPlayer" 
-        component={VideoPlayerScreen}
+        component={VideoPlayerScreen as any}
         options={{ title: 'Video Player' }}
       />
     </Stack.Navigator>
@@ -74,15 +73,6 @@ export const Navigation: React.FC = () => {
           options={{
             tabBarIcon: ({ color, size }) => (
               <MaterialIcons name="receipt" size={size} color={color} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Downloads"
-          component={DownloadsScreen}
-          options={{
-            tabBarIcon: ({ color, size }) => (
-              <MaterialIcons name="download" size={size} color={color} />
             ),
           }}
         />
