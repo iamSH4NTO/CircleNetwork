@@ -1,0 +1,224 @@
+import React, { useRef, useState, useEffect } from 'react';
+import {
+  View,
+  ActivityIndicator,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  ScrollView,
+  Linking,
+} from 'react-native';
+import { WebView as RNWebView } from 'react-native-webview';
+import NetInfo from '@react-native-community/netinfo';
+import { useTheme } from '../context/ThemeContext';
+import { shouldOpenInBrowser } from '../utils/WebViewUtils';
+
+interface CustomWebViewProps {
+  url: string;
+  userAgent?: string;
+  onDownload?: (url: string, filename: string) => void;
+  onUrlChange?: (url: string) => void;
+}
+
+export const CustomWebView: React.FC<CustomWebViewProps> = ({
+  url,
+  userAgent,
+  onDownload,
+  onUrlChange,
+}) => {
+  const webViewRef = useRef<RNWebView>(null);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { theme } = useTheme();
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      setIsOnline(state.isConnected ?? false);
+    });
+
+    return () => {
+      unsubscribe();
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setError(false);
+    setIsFirstLoad(true);
+    webViewRef.current?.reload();
+    setTimeout(() => setRefreshing(false), 1000);
+  };
+
+  const handleNavigationStateChange = (navState: any) => {
+    if (shouldOpenInBrowser(navState.url)) {
+      webViewRef.current?.stopLoading();
+      Linking.openURL(navState.url);
+      return false;
+    }
+    if (onUrlChange && navState.url) {
+      onUrlChange(navState.url);
+    }
+  };
+
+  const handleShouldStartLoadWithRequest = (request: any) => {
+    if (shouldOpenInBrowser(request.url)) {
+      Linking.openURL(request.url);
+      return false;
+    }
+    return true;
+  };
+
+  if (!isOnline) {
+    return (
+      <ScrollView
+        contentContainerStyle={[
+          styles.centerContainer,
+          { backgroundColor: theme.colors.background },
+        ]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+      >
+        <Text style={[styles.offlineText, { color: theme.colors.text }]}>
+          Connect Circle Network Internet
+        </Text>
+      </ScrollView>
+    );
+  }
+
+  if (error) {
+    return (
+      <ScrollView
+        contentContainerStyle={[
+          styles.centerContainer,
+          { backgroundColor: theme.colors.background },
+        ]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+      >
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>
+          Failed to load page
+        </Text>
+        <Text style={[styles.errorSubtext, { color: theme.colors.secondary }]}>
+          Pull down to retry
+        </Text>
+      </ScrollView>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <RNWebView
+        ref={webViewRef}
+        source={{ uri: url }}
+        userAgent={userAgent}
+        onLoadStart={() => {
+          if (isFirstLoad) {
+            setLoading(true);
+            if (loadingTimeoutRef.current) {
+              clearTimeout(loadingTimeoutRef.current);
+            }
+            loadingTimeoutRef.current = setTimeout(() => {
+              setLoading(false);
+            }, 3000);
+          }
+        }}
+        onLoadEnd={() => {
+          if (loadingTimeoutRef.current) {
+            clearTimeout(loadingTimeoutRef.current);
+          }
+          setLoading(false);
+          setIsFirstLoad(false);
+        }}
+        onError={() => {
+          if (loadingTimeoutRef.current) {
+            clearTimeout(loadingTimeoutRef.current);
+          }
+          setLoading(false);
+          setError(true);
+          setIsFirstLoad(false);
+        }}
+        onNavigationStateChange={handleNavigationStateChange}
+        onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+        startInLoadingState={false}
+        scalesPageToFit={true}
+        allowsBackForwardNavigationGestures={true}
+        setSupportMultipleWindows={false}
+        minimumFontSize={1}
+        injectedJavaScript={userAgent ? `
+          (function() {
+            // Remove all existing viewport meta tags
+            var metas = document.querySelectorAll('meta[name="viewport"]');
+            for (var i = 0; i < metas.length; i++) {
+              metas[i].remove();
+            }
+            
+            // Add desktop viewport
+            var meta = document.createElement('meta');
+            meta.name = 'viewport';
+            meta.content = 'width=1280';
+            document.head.appendChild(meta);
+            
+            // Force desktop styles
+            document.body.style.minWidth = '1280px';
+          })();
+          true;
+        ` : undefined}
+        style={{ backgroundColor: theme.colors.background }}
+      />
+      {loading && isFirstLoad && (
+        <View style={[styles.loadingBar, { backgroundColor: theme.colors.primary }]}>
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        </View>
+      )}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  loadingBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+    paddingVertical: 8,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  offlineText: {
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  errorSubtext: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+});
