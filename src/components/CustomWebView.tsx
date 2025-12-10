@@ -7,8 +7,11 @@ import {
   Text,
   ScrollView,
   Linking,
+  Alert,
+  TouchableOpacity,
 } from 'react-native';
 import { WebView as RNWebView } from 'react-native-webview';
+import { MaterialIcons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 import { useTheme } from '../context/ThemeContext';
 import { shouldOpenInBrowser } from '../utils/WebViewUtils';
@@ -18,6 +21,8 @@ interface CustomWebViewProps {
   userAgent?: string;
   onDownload?: (url: string, filename: string) => void;
   onUrlChange?: (url: string) => void;
+  onNavigationStateChange?: (canGoBack: boolean, canGoForward: boolean) => void;
+  webViewRef?: React.RefObject<RNWebView>;
 }
 
 export const CustomWebView: React.FC<CustomWebViewProps> = ({
@@ -25,8 +30,11 @@ export const CustomWebView: React.FC<CustomWebViewProps> = ({
   userAgent,
   onDownload,
   onUrlChange,
+  onNavigationStateChange,
+  webViewRef: externalWebViewRef,
 }) => {
-  const webViewRef = useRef<RNWebView>(null);
+  const internalWebViewRef = useRef<RNWebView>(null);
+  const webViewRef = externalWebViewRef || internalWebViewRef;
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { theme } = useTheme();
   const [loading, setLoading] = useState(true);
@@ -57,6 +65,10 @@ export const CustomWebView: React.FC<CustomWebViewProps> = ({
   };
 
   const handleNavigationStateChange = (navState: any) => {
+    if (onNavigationStateChange) {
+      onNavigationStateChange(navState.canGoBack, navState.canGoForward);
+    }
+    
     if (shouldOpenInBrowser(navState.url)) {
       webViewRef.current?.stopLoading();
       Linking.openURL(navState.url);
@@ -68,10 +80,51 @@ export const CustomWebView: React.FC<CustomWebViewProps> = ({
   };
 
   const handleShouldStartLoadWithRequest = (request: any) => {
-    if (shouldOpenInBrowser(request.url)) {
-      Linking.openURL(request.url);
+    const { url } = request;
+    
+    if (shouldOpenInBrowser(url)) {
+      Linking.openURL(url);
       return false;
     }
+    
+    // Check if it's a media file
+    const mediaExtensions = ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.mp3', '.wav', '.pdf', '.zip', '.rar', '.apk'];
+    const isMedia = mediaExtensions.some(ext => url.toLowerCase().includes(ext));
+    
+    if (isMedia) {
+      webViewRef.current?.stopLoading();
+      
+      const isVideo = ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v'].some(ext => url.toLowerCase().includes(ext));
+      
+      Alert.alert(
+        isVideo ? 'Video File' : 'Media File',
+        'What would you like to do?',
+        [
+          {
+            text: isVideo ? 'Stream' : 'Open',
+            onPress: () => {
+              Linking.openURL(url);
+            },
+          },
+          {
+            text: 'Download',
+            onPress: () => {
+              if (onDownload) {
+                const filename = url.split('/').pop() || 'download';
+                onDownload(url, filename);
+              }
+            },
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+        ]
+      );
+      
+      return false;
+    }
+    
     return true;
   };
 
@@ -220,5 +273,19 @@ const styles = StyleSheet.create({
   errorSubtext: {
     fontSize: 14,
     textAlign: 'center',
+  },
+  navBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+  },
+  navButton: {
+    padding: 8,
+    borderRadius: 8,
+  },
+  navButtonDisabled: {
+    opacity: 0.3,
   },
 });

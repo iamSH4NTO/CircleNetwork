@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -13,11 +13,13 @@ import { MaterialIcons } from '@expo/vector-icons';
 import * as Sharing from 'expo-sharing';
 import { useTheme } from '../context/ThemeContext';
 import { useSettingsStore } from '../store/SettingsStore';
+import { useDownloadStore } from '../store/DownloadStore';
 import { DownloadManager } from '../utils/DownloadManager';
 
 export const SettingsScreen: React.FC = () => {
   const { theme, isDark, toggleTheme } = useTheme();
   const { downloadFolderUri, setDownloadFolderUri } = useSettingsStore();
+  const { maxThreads, setMaxThreads } = useDownloadStore();
 
   const handleShareApp = async () => {
     try {
@@ -45,6 +47,21 @@ export const SettingsScreen: React.FC = () => {
       await setDownloadFolderUri(uri);
       Alert.alert('Success', 'Download folder selected successfully');
     }
+  };
+
+  const handleThreadsChange = () => {
+    Alert.alert(
+      'Download Threads',
+      'Select maximum concurrent downloads',
+      [
+        { text: '1 Thread', onPress: () => setMaxThreads(1) },
+        { text: '2 Threads', onPress: () => setMaxThreads(2) },
+        { text: '3 Threads', onPress: () => setMaxThreads(3) },
+        { text: '4 Threads', onPress: () => setMaxThreads(4) },
+        { text: '5 Threads', onPress: () => setMaxThreads(5) },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
   };
 
   const handleDevLink = () => {
@@ -134,6 +151,23 @@ export const SettingsScreen: React.FC = () => {
             </View>
             <MaterialIcons name="chevron-right" size={24} color={theme.colors.secondary} />
           </TouchableOpacity>
+
+          <View style={styles.divider} />
+
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={handleThreadsChange}
+          >
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingLabel, { color: theme.colors.text }]}>
+                Download Threads
+              </Text>
+              <Text style={[styles.settingDescription, { color: theme.colors.secondary }]}>
+                {maxThreads} concurrent download{maxThreads > 1 ? 's' : ''}
+              </Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={24} color={theme.colors.secondary} />
+          </TouchableOpacity>
         </View>
 
         {/* Developer Credit */}
@@ -197,6 +231,11 @@ const styles = StyleSheet.create({
   },
   settingDescription: {
     fontSize: 14,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    marginVertical: 8,
   },
   devCredit: {
     alignItems: 'center',

@@ -1,17 +1,64 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useLayoutEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { WebView as RNWebView } from 'react-native-webview';
 import * as Sharing from 'expo-sharing';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { CustomWebView } from '../components/CustomWebView';
 import { DESKTOP_USER_AGENT } from '../utils/WebViewUtils';
 import { DownloadManager } from '../utils/DownloadManager';
 import { useSettingsStore } from '../store/SettingsStore';
+import { useDownloadStore } from '../store/DownloadStore';
 
 export const HomeScreen: React.FC = () => {
   const { theme } = useTheme();
+  const navigation = useNavigation();
+  const webViewRef = useRef<RNWebView>(null);
   const [currentUrl, setCurrentUrl] = useState('http://new.circleftp.net/');
+  const [canGoBack, setCanGoBack] = useState(false);
+  const [canGoForward, setCanGoForward] = useState(false);
   const { downloadFolderUri } = useSettingsStore();
+  const { addDownload } = useDownloadStore();
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={styles.headerButtons}>
+          {canGoBack && (
+            <TouchableOpacity
+              onPress={() => webViewRef.current?.goBack()}
+              style={styles.headerButton}
+            >
+              <MaterialIcons
+                name="arrow-back"
+                size={24}
+                color={theme.colors.text}
+              />
+            </TouchableOpacity>
+          )}
+          {canGoForward && (
+            <TouchableOpacity
+              onPress={() => webViewRef.current?.goForward()}
+              style={styles.headerButton}
+            >
+              <MaterialIcons
+                name="arrow-forward"
+                size={24}
+                color={theme.colors.text}
+              />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            onPress={() => webViewRef.current?.reload()}
+            style={styles.headerButton}
+          >
+            <MaterialIcons name="refresh" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+        </View>
+      ),
+    });
+  }, [navigation, canGoBack, canGoForward, theme]);
 
   const handleShare = async () => {
     try {
@@ -37,15 +84,14 @@ export const HomeScreen: React.FC = () => {
   };
 
   const handleDownload = async (url: string, filename: string) => {
-    if (!downloadFolderUri) {
-      Alert.alert(
-        'No Download Folder',
-        'Please select a download folder in Settings first.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-
+    addDownload(url, filename);
+    
+    Alert.alert(
+      'Download Started',
+      `${filename} has been added to downloads`,
+      [{ text: 'OK' }]
+    );
+    
     await DownloadManager.downloadFile(url, filename, downloadFolderUri);
   };
 
@@ -56,6 +102,11 @@ export const HomeScreen: React.FC = () => {
         userAgent={DESKTOP_USER_AGENT}
         onDownload={handleDownload}
         onUrlChange={(url) => setCurrentUrl(url)}
+        onNavigationStateChange={(back, forward) => {
+          setCanGoBack(back);
+          setCanGoForward(forward);
+        }}
+        webViewRef={webViewRef}
       />
       
       <TouchableOpacity
@@ -71,6 +122,13 @@ export const HomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    marginRight: 8,
+  },
+  headerButton: {
+    padding: 8,
   },
   fab: {
     position: 'absolute',

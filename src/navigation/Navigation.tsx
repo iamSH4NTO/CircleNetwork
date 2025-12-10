@@ -5,6 +5,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { HomeScreen } from '../screens/HomeScreen';
 import { BillingScreen } from '../screens/BillingScreen';
+import { DownloadsScreen } from '../screens/DownloadsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
@@ -43,6 +44,15 @@ export const Navigation: React.FC = () => {
           options={{
             tabBarIcon: ({ color, size }) => (
               <MaterialIcons name="receipt" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Downloads"
+          component={DownloadsScreen}
+          options={{
+            tabBarIcon: ({ color, size }) => (
+              <MaterialIcons name="download" size={size} color={color} />
             ),
           }}
         />
