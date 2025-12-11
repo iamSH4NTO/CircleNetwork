@@ -12,32 +12,54 @@ import { VideoPlayerScreen } from '../screens/VideoPlayerScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-const HomeStack = () => {
+const MainTabs = () => {
   const { theme } = useTheme();
   
   return (
-    <Stack.Navigator
+    <Tab.Navigator
       screenOptions={{
         headerStyle: {
           backgroundColor: theme.colors.card,
         },
         headerTintColor: theme.colors.text,
+        tabBarStyle: {
+          backgroundColor: theme.colors.card,
+          borderTopColor: theme.colors.border,
+        },
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.secondary,
       }}
     >
-      <Stack.Screen 
-        name="HomeMain" 
+      <Tab.Screen
+        name="Home"
         component={HomeScreen}
-        options={{ title: 'Home' }}
+        options={{
+          headerShown: true,
+          title: 'Home',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="home" size={size} color={color} />
+          ),
+        }}
       />
-      <Stack.Screen 
-        name="VideoPlayer" 
-        component={VideoPlayerScreen as any}
-        options={({ route }: any) => ({
-          title: route.params?.title || 'Video Player',
-          headerShown: false,
-        })}
+      <Tab.Screen
+        name="Billing"
+        component={BillingScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="receipt" size={size} color={color} />
+          ),
+        }}
       />
-    </Stack.Navigator>
+      <Tab.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="settings" size={size} color={color} />
+          ),
+        }}
+      />
+    </Tab.Navigator>
   );
 };
 
@@ -46,49 +68,28 @@ export const Navigation: React.FC = () => {
 
   return (
     <NavigationContainer>
-      <Tab.Navigator
+      <Stack.Navigator
         screenOptions={{
           headerStyle: {
             backgroundColor: theme.colors.card,
           },
           headerTintColor: theme.colors.text,
-          tabBarStyle: {
-            backgroundColor: theme.colors.card,
-            borderTopColor: theme.colors.border,
-          },
-          tabBarActiveTintColor: theme.colors.primary,
-          tabBarInactiveTintColor: theme.colors.secondary,
         }}
       >
-        <Tab.Screen
-          name="Home"
-          component={HomeStack}
-          options={{
+        <Stack.Screen 
+          name="MainTabs" 
+          component={MainTabs}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="VideoPlayer" 
+          component={VideoPlayerScreen as any}
+          options={{ 
             headerShown: false,
-            tabBarIcon: ({ color, size }) => (
-              <MaterialIcons name="home" size={size} color={color} />
-            ),
+            presentation: 'fullScreenModal'
           }}
         />
-        <Tab.Screen
-          name="Billing"
-          component={BillingScreen}
-          options={{
-            tabBarIcon: ({ color, size }) => (
-              <MaterialIcons name="receipt" size={size} color={color} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Settings"
-          component={SettingsScreen}
-          options={{
-            tabBarIcon: ({ color, size }) => (
-              <MaterialIcons name="settings" size={size} color={color} />
-            ),
-          }}
-        />
-      </Tab.Navigator>
+      </Stack.Navigator>
     </NavigationContainer>
   );
 };
