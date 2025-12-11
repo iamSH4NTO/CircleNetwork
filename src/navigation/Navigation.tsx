@@ -67,7 +67,8 @@ const MainTabs = () => {
         component={HomeScreen}
         options={{
           headerShown: true,
-          title: 'Home',
+          title: 'CircleNetwork',
+          tabBarLabel: 'Home',
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="home" size={size} color={color} />
           ),
@@ -77,6 +78,7 @@ const MainTabs = () => {
         name="Billing"
         component={BillingScreen}
         options={{
+          tabBarLabel: 'Billing',
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="receipt" size={size} color={color} />
           ),
@@ -86,6 +88,7 @@ const MainTabs = () => {
         name="Settings"
         component={SettingsScreen}
         options={{
+          tabBarLabel: 'Settings',
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="settings" size={size} color={color} />
           ),
