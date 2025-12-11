@@ -42,6 +42,7 @@ export const CustomWebView: React.FC<CustomWebViewProps> = ({
   const [error, setError] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [loadProgress, setLoadProgress] = useState(0);
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
@@ -60,6 +61,7 @@ export const CustomWebView: React.FC<CustomWebViewProps> = ({
     setRefreshing(true);
     setError(false);
     setIsFirstLoad(true);
+    setLoadProgress(0);
     webViewRef.current?.reload();
     setTimeout(() => setRefreshing(false), 1000);
   };
@@ -151,6 +153,9 @@ export const CustomWebView: React.FC<CustomWebViewProps> = ({
         <Text style={[styles.offlineText, { color: theme.colors.text }]}>
           Connect Circle Network Internet
         </Text>
+        <Text style={[styles.offlineSubtext, { color: theme.colors.secondary }]}>
+          Please check your internet connection and try again
+        </Text>
       </ScrollView>
     );
   }
@@ -185,13 +190,21 @@ export const CustomWebView: React.FC<CustomWebViewProps> = ({
         onLoadStart={() => {
           if (isFirstLoad) {
             setLoading(true);
+            setLoadProgress(0);
             if (loadingTimeoutRef.current) {
               clearTimeout(loadingTimeoutRef.current);
             }
+            // Set a reasonable timeout for initial load
             loadingTimeoutRef.current = setTimeout(() => {
-              setLoading(false);
-            }, 3000);
+              if (isFirstLoad) {
+                setLoading(false);
+                setError(true);
+              }
+            }, 15000); // 15 seconds timeout
           }
+        }}
+        onLoadProgress={({ nativeEvent }) => {
+          setLoadProgress(nativeEvent.progress);
         }}
         onLoadEnd={() => {
           if (loadingTimeoutRef.current) {
@@ -200,13 +213,30 @@ export const CustomWebView: React.FC<CustomWebViewProps> = ({
           setLoading(false);
           setIsFirstLoad(false);
         }}
-        onError={() => {
+        onError={(syntheticEvent) => {
+          const { nativeEvent } = syntheticEvent;
+          console.log('WebView error:', nativeEvent);
+          
           if (loadingTimeoutRef.current) {
             clearTimeout(loadingTimeoutRef.current);
           }
           setLoading(false);
           setError(true);
           setIsFirstLoad(false);
+        }}
+        onHttpError={(syntheticEvent) => {
+          const { nativeEvent } = syntheticEvent;
+          console.log('HTTP error:', nativeEvent.statusCode, nativeEvent.url);
+          
+          // Only show error for significant HTTP errors
+          if (nativeEvent.statusCode >= 400 && isFirstLoad) {
+            if (loadingTimeoutRef.current) {
+              clearTimeout(loadingTimeoutRef.current);
+            }
+            setLoading(false);
+            setError(true);
+            setIsFirstLoad(false);
+          }
         }}
         onNavigationStateChange={handleNavigationStateChange}
         onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
@@ -246,8 +276,18 @@ export const CustomWebView: React.FC<CustomWebViewProps> = ({
         } : {})}
       />
       {loading && isFirstLoad && (
-        <View style={[styles.loadingBar, { backgroundColor: theme.colors.primary }]}>
-          <ActivityIndicator size="small" color="#FFFFFF" />
+        <View style={[styles.loadingOverlay, { backgroundColor: theme.colors.background }]}>
+          <View style={styles.loadingContent}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={[styles.loadingText, { color: theme.colors.text, marginTop: 16 }]}>
+              Loading website...
+            </Text>
+            {loadProgress > 0 && (
+              <Text style={[styles.loadingText, { color: theme.colors.secondary, fontSize: 14, marginTop: 8 }]}>
+                {Math.round(loadProgress * 100)}% loaded
+              </Text>
+            )}
+          </View>
         </View>
       )}
     </View>
@@ -258,16 +298,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  loadingBar: {
+  loadingOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 3,
+    bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 999,
-    paddingVertical: 8,
+  },
+  loadingContent: {
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
   centerContainer: {
     flex: 1,
@@ -279,6 +325,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  offlineSubtext: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
   },
   errorText: {
     fontSize: 18,

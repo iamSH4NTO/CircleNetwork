@@ -1,5 +1,5 @@
 import React, { useState, useRef, useLayoutEffect, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, AppState, AppStateStatus } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { WebView as RNWebView } from 'react-native-webview';
 import { useNavigation } from '@react-navigation/native';
@@ -17,18 +17,41 @@ export const BillingScreen: React.FC = () => {
   const [useDesktopMode, setUseDesktopMode] = useState(false);
 
   // Load desktop mode setting
+  const loadDesktopModeSetting = async () => {
+    try {
+      const desktopMode = await AsyncStorage.getItem('billing_desktop_mode');
+      setUseDesktopMode(desktopMode === 'true');
+    } catch (error) {
+      console.log('Error loading billing desktop mode setting:', error);
+    }
+  };
+
+  // Load desktop mode setting on mount
   useEffect(() => {
-    const loadDesktopModeSetting = async () => {
-      try {
-        const desktopMode = await AsyncStorage.getItem('billing_desktop_mode');
-        setUseDesktopMode(desktopMode === 'true');
-      } catch (error) {
-        console.log('Error loading billing desktop mode setting:', error);
+    loadDesktopModeSetting();
+  }, []);
+
+  // Listen for app state changes to refresh settings
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        // App came to foreground, reload settings
+        loadDesktopModeSetting();
       }
     };
 
-    loadDesktopModeSetting();
-  }, []);
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    // Also listen for focus events on navigation
+    const unsubscribeFocus = navigation.addListener('focus', () => {
+      loadDesktopModeSetting();
+    });
+
+    return () => {
+      subscription?.remove();
+      unsubscribeFocus();
+    };
+  }, [navigation]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
