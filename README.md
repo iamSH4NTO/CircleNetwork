@@ -20,17 +20,17 @@ A full-featured Expo React Native application with WebViews, theme settings, fil
 
 Below are screenshots of the app showcasing its various features and screens:
 
-| Home Screen | Billing Screen |
+| Splash Screen | Home Screen |
 |:---:|:---:|
-| ![Home Screen](screenshots/home.jpg) | ![Billing Screen](screenshots/billing.jpg) |
+| <img src="screenshots/splash.jpg" alt="Splash Screen" width="200"> | <img src="screenshots/home.jpg" alt="Home Screen" width="200"> |
 
-| Settings Screen | Splash Screen |
+| Billing Screen | Settings Screen |
 |:---:|:---:|
-| ![Settings Screen](screenshots/settings.jpg) | ![Splash Screen](screenshots/splash.jpg) |
+| <img src="screenshots/billing.jpg" alt="Billing Screen" width="200"> | <img src="screenshots/settings.jpg" alt="Settings Screen" width="200"> |
 
 | Stream Menu |
 |:---:|
-| ![Stream Menu](screenshots/stream_menu.jpg) |
+| <img src="screenshots/stream_menu.jpg" alt="Stream Menu" width="200"> |
 
 ## Tech Stack
 
