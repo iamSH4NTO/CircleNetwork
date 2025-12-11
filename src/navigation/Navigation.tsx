@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -8,6 +8,7 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { BillingScreen } from '../screens/BillingScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { VideoPlayerScreen } from '../screens/VideoPlayerScreen';
+import { Alert, BackHandler, Platform } from 'react-native';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -15,6 +16,35 @@ const Stack = createNativeStackNavigator();
 const MainTabs = () => {
   const { theme } = useTheme();
   
+  // Handle back button for exit confirmation
+  useEffect(() => {
+    const backAction = () => {
+      Alert.alert(
+        "Exit App",
+        "Are you sure you want to exit?",
+        [
+          {
+            text: "Cancel",
+            onPress: () => null,
+            style: "cancel"
+          },
+          { 
+            text: "Yes", 
+            onPress: () => BackHandler.exitApp() 
+          }
+        ]
+      );
+      return true;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, []);
+
   return (
     <Tab.Navigator
       screenOptions={{

@@ -8,6 +8,7 @@ import {
   Switch,
   Linking,
   Alert,
+  Platform,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
@@ -119,9 +120,35 @@ export const SettingsScreen: React.FC = () => {
         ...EXTERNAL_PLAYERS.map((player) => ({
           text: player.name,
           onPress: () => savePreferredPlayer(player.id),
-          isPreferred: player.id === preferredPlayer
         })),
         { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
+
+  // Handle app exit
+  const handleExitApp = () => {
+    Alert.alert(
+      "Exit App",
+      "Are you sure you want to exit?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Yes",
+          style: "destructive",
+          onPress: () => {
+            if (Platform.OS === 'android') {
+              // For Android, we can exit the app
+              Alert.alert("Exit", "Press the back button again to exit");
+            } else {
+              // For iOS, we can't really exit the app, so we'll just show a message
+              Alert.alert("Exit", "App will continue running in the background");
+            }
+          }
+        }
       ]
     );
   };
@@ -129,74 +156,51 @@ export const SettingsScreen: React.FC = () => {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
+      contentContainerStyle={styles.contentContainer}
     >
       <View style={styles.content}>
-        {/* Theme Section */}
-        <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
-          <View style={styles.cardHeader}>
+        {/* Theme Section - Simplified */}
+        <TouchableOpacity 
+          style={[styles.simpleCard, { backgroundColor: theme.colors.card }]}
+          onPress={toggleTheme}
+        >
+          <View style={styles.simpleRow}>
             <MaterialIcons
-              name="palette"
+              name={isDark ? "dark-mode" : "light-mode"}
               size={24}
               color={theme.colors.primary}
             />
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
-              Appearance
+            <Text style={[styles.simpleLabel, { color: theme.colors.text }]}>
+              {isDark ? "Dark Mode" : "Light Mode"}
             </Text>
-          </View>
-
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Text style={[styles.settingLabel, { color: theme.colors.text }]}>
-                Dark Mode
-              </Text>
-              <Text
-                style={[
-                  styles.settingDescription,
-                  { color: theme.colors.secondary },
-                ]}
-              >
-                {isDark ? "Enabled" : "Disabled"}
-              </Text>
-            </View>
-            <Switch
-              value={isDark}
-              onValueChange={toggleTheme}
-              trackColor={{
-                false: theme.colors.border,
-                true: theme.colors.primary,
-              }}
-              thumbColor="#FFFFFF"
+            <View style={styles.spacer} />
+            <MaterialIcons
+              name="chevron-right"
+              size={24}
+              color={theme.colors.secondary}
             />
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* Desktop Mode Section */}
-        <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
-          <View style={styles.cardHeader}>
+        <View style={[styles.sectionCard, { backgroundColor: theme.colors.card }]}>
+          <View style={styles.sectionHeader}>
             <MaterialIcons
               name="computer"
-              size={24}
+              size={20}
               color={theme.colors.primary}
             />
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
               Desktop Mode
             </Text>
           </View>
 
+          <View style={styles.divider} />
+
           <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Text style={[styles.settingLabel, { color: theme.colors.text }]}>
-                Home Screen
-              </Text>
-              <Text
-                style={[
-                  styles.settingDescription,
-                  { color: theme.colors.secondary },
-                ]}
-              >
-                {homeDesktopMode ? "Desktop Mode" : "Mobile Mode"}
-              </Text>
-            </View>
+            <Text style={[styles.settingLabel, { color: theme.colors.text }]}>
+              Home Screen
+            </Text>
             <Switch
               value={homeDesktopMode}
               onValueChange={(value) => saveDesktopModeSetting('home', value)}
@@ -208,20 +212,10 @@ export const SettingsScreen: React.FC = () => {
             />
           </View>
 
-          <View style={[styles.settingRow, { marginTop: 8 }]}>
-            <View style={styles.settingInfo}>
-              <Text style={[styles.settingLabel, { color: theme.colors.text }]}>
-                Billing Screen
-              </Text>
-              <Text
-                style={[
-                  styles.settingDescription,
-                  { color: theme.colors.secondary },
-                ]}
-              >
-                {billingDesktopMode ? "Desktop Mode" : "Mobile Mode"}
-              </Text>
-            </View>
+          <View style={[styles.settingRow, styles.bottomRow]}>
+            <Text style={[styles.settingLabel, { color: theme.colors.text }]}>
+              Billing Screen
+            </Text>
             <Switch
               value={billingDesktopMode}
               onValueChange={(value) => saveDesktopModeSetting('billing', value)}
@@ -235,74 +229,73 @@ export const SettingsScreen: React.FC = () => {
         </View>
 
         {/* Player Settings */}
-        <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
-          <View style={styles.cardHeader}>
+        <TouchableOpacity 
+          style={[styles.sectionCard, { backgroundColor: theme.colors.card }]}
+          onPress={showPlayerSelectionDialog}
+        >
+          <View style={styles.settingRow}>
             <MaterialIcons
               name="video-library"
-              size={24}
+              size={20}
               color={theme.colors.primary}
             />
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
+            <Text style={[styles.settingLabel, { color: theme.colors.text, flex: 1, marginLeft: 8 }]}>
               Video Player
             </Text>
-          </View>
-
-          <TouchableOpacity style={styles.settingRow} onPress={showPlayerSelectionDialog}>
-            <View style={styles.settingInfo}>
-              <Text style={[styles.settingLabel, { color: theme.colors.text }]}>
-                Default Player
-              </Text>
-              <Text
-                style={[
-                  styles.settingDescription,
-                  { color: theme.colors.secondary },
-                ]}
-              >
-                {EXTERNAL_PLAYERS.find(p => p.id === preferredPlayer)?.name || 'System Player'}
-              </Text>
-            </View>
+            <Text style={[styles.settingValue, { color: theme.colors.secondary }]}>
+              {EXTERNAL_PLAYERS.find(p => p.id === preferredPlayer)?.name || 'System Player'}
+            </Text>
             <MaterialIcons
               name="chevron-right"
               size={24}
               color={theme.colors.secondary}
             />
-          </TouchableOpacity>
-        </View>
+          </View>
+        </TouchableOpacity>
 
         {/* Share Section */}
-        <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
-          <View style={styles.cardHeader}>
+        <TouchableOpacity 
+          style={[styles.sectionCard, { backgroundColor: theme.colors.card }]}
+          onPress={handleShareApp}
+        >
+          <View style={styles.settingRow}>
             <MaterialIcons
               name="share"
-              size={24}
+              size={20}
               color={theme.colors.primary}
             />
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
-              Share
+            <Text style={[styles.settingLabel, { color: theme.colors.text, flex: 1, marginLeft: 8 }]}>
+              Share App
             </Text>
-          </View>
-
-          <TouchableOpacity style={styles.settingRow} onPress={handleShareApp}>
-            <View style={styles.settingInfo}>
-              <Text style={[styles.settingLabel, { color: theme.colors.text }]}>
-                Share App
-              </Text>
-              <Text
-                style={[
-                  styles.settingDescription,
-                  { color: theme.colors.secondary },
-                ]}
-              >
-                Tell your friends about CircleNetwork
-              </Text>
-            </View>
             <MaterialIcons
               name="chevron-right"
               size={24}
               color={theme.colors.secondary}
             />
-          </TouchableOpacity>
-        </View>
+          </View>
+        </TouchableOpacity>
+
+        {/* Exit App Section */}
+        <TouchableOpacity 
+          style={[styles.sectionCard, { backgroundColor: theme.colors.card }]}
+          onPress={handleExitApp}
+        >
+          <View style={styles.settingRow}>
+            <MaterialIcons
+              name="exit-to-app"
+              size={20}
+              color={theme.colors.error}
+            />
+            <Text style={[styles.settingLabel, { color: theme.colors.error, flex: 1, marginLeft: 8 }]}>
+              Exit App
+            </Text>
+            <MaterialIcons
+              name="chevron-right"
+              size={24}
+              color={theme.colors.secondary}
+            />
+          </View>
+        </TouchableOpacity>
 
         {/* Developer Credit */}
         <TouchableOpacity style={styles.devCredit} onPress={handleDevLink}>
@@ -322,10 +315,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  contentContainer: {
+    paddingBottom: 20,
+  },
   content: {
     padding: 16,
   },
-  card: {
+  simpleCard: {
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
@@ -335,33 +331,59 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
   },
-  cardHeader: {
+  simpleRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
   },
-  cardTitle: {
+  simpleLabel: {
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: "500",
     marginLeft: 12,
+  },
+  sectionCard: {
+    borderRadius: 12,
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    overflow: 'hidden',
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 8,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    marginHorizontal: 16,
   },
   settingRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
-  settingInfo: {
-    flex: 1,
-    marginRight: 16,
+  bottomRow: {
+    paddingBottom: 16,
   },
   settingLabel: {
     fontSize: 16,
     fontWeight: "500",
-    marginBottom: 4,
   },
-  settingDescription: {
+  settingValue: {
     fontSize: 14,
+    marginRight: 8,
+  },
+  spacer: {
+    flex: 1,
   },
   devCredit: {
     alignItems: "center",
