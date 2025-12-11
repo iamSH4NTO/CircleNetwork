@@ -16,6 +16,22 @@ A full-featured Expo React Native application with WebViews, theme settings, fil
 - ✅ **Player Selection**: Choose and remember your preferred video player
 - ✅ **Modern UI**: Material Design icons and smooth transitions
 
+## Screenshots
+
+Below are screenshots of the app showcasing its various features and screens:
+
+| Home Screen | Billing Screen |
+|:---:|:---:|
+| ![Home Screen](screenshots/home.jpg) | ![Billing Screen](screenshots/billing.jpg) |
+
+| Settings Screen | Splash Screen |
+|:---:|:---:|
+| ![Settings Screen](screenshots/settings.jpg) | ![Splash Screen](screenshots/splash.jpg) |
+
+| Stream Menu |
+|:---:|
+| ![Stream Menu](screenshots/stream_menu.jpg) |
+
 ## Tech Stack
 
 - **Expo SDK 54** - Latest stable version
