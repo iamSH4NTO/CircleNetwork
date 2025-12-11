@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Dimensions,
   StatusBar,
+  Platform,
 } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import type { VideoPlayer } from 'expo-video';
@@ -62,7 +63,14 @@ export const VideoPlayerScreen: React.FC<VideoPlayerScreenProps> = ({ route, nav
         setIsLoading(true);
       } else if (payload.status === 'readyToPlay') {
         setIsLoading(false);
+      } else if (payload.status === 'error') {
+        console.error('Video player error:', payload.error);
+        setIsLoading(false);
       }
+    });
+    
+    player.addListener('playbackRateChange', () => {
+      // Force re-render when playback rate changes
     });
   });
 
@@ -107,14 +115,28 @@ export const VideoPlayerScreen: React.FC<VideoPlayerScreenProps> = ({ route, nav
     }
   };
 
+  // Skip forward/backward
+  const handleSkip = (seconds: number) => {
+    if (player) {
+      const newPosition = Math.max(0, Math.min(player.currentTime + seconds, player.duration));
+      player.seekBy(newPosition - player.currentTime);
+    }
+  };
+
   // Toggle fullscreen
   const toggleFullscreen = async () => {
-    if (isFullscreen) {
-      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
-      setIsFullscreen(false);
-    } else {
-      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
-      setIsFullscreen(true);
+    try {
+      if (isFullscreen) {
+        // Exit fullscreen
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+        setIsFullscreen(false);
+      } else {
+        // Enter fullscreen
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_LEFT);
+        setIsFullscreen(true);
+      }
+    } catch (error) {
+      console.log('Error toggling fullscreen:', error);
     }
   };
 
@@ -168,6 +190,7 @@ export const VideoPlayerScreen: React.FC<VideoPlayerScreenProps> = ({ route, nav
 
   // Format time in MM:SS
   const formatTime = (seconds: number) => {
+    if (isNaN(seconds) || seconds === Infinity || seconds === -Infinity) return '0:00';
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = Math.floor(seconds % 60);
     return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
@@ -176,16 +199,16 @@ export const VideoPlayerScreen: React.FC<VideoPlayerScreenProps> = ({ route, nav
   // Seek to position
   const seekTo = async (position: number) => {
     if (player) {
-      player.seekBy(position);
+      player.seekBy(position - player.currentTime);
     }
   };
 
   // Handle progress bar press
   const onProgressBarPress = (event: any) => {
-    if (player) {
+    if (player && player.duration > 0) {
       const position = event.nativeEvent.locationX;
       const progressBarWidth = SCREEN_WIDTH - 32; // Accounting for padding
-      const percentage = position / progressBarWidth;
+      const percentage = Math.max(0, Math.min(1, position / progressBarWidth));
       const newPosition = percentage * player.duration;
       seekTo(newPosition);
     }
@@ -200,19 +223,43 @@ export const VideoPlayerScreen: React.FC<VideoPlayerScreenProps> = ({ route, nav
     }
   };
 
-  // Cleanup on unmount
+  // Hide header immediately when entering this screen
   useEffect(() => {
+    navigation.setOptions({
+      headerShown: false,
+    });
+
+    // Also hide the StatusBar
+    StatusBar.setHidden(true);
+
     return () => {
-      if (isFullscreen) {
-        ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
-      }
+      // Restore header when leaving screen
+      navigation.setOptions({
+        headerShown: true,
+      });
+      // Show StatusBar when leaving screen
+      StatusBar.setHidden(false);
     };
-  }, [isFullscreen]);
+  }, [navigation]);
+
+  // Lock initial orientation
+  useEffect(() => {
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+
+    return () => {
+      // Reset orientation when leaving screen
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+    };
+  }, []);
 
   return (
     <GestureHandlerRootView style={styles.container}>
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <StatusBar hidden={isFullscreen} />
+        <StatusBar 
+          hidden={isFullscreen || (player && player.playing)} 
+          translucent={true}
+          backgroundColor="transparent"
+        />
         
         <PanGestureHandler
           ref={panGestureRef}
@@ -230,12 +277,18 @@ export const VideoPlayerScreen: React.FC<VideoPlayerScreenProps> = ({ route, nav
               }}
               numberOfTaps={2}>
               <Animated.View style={styles.videoContainer}>
-                <VideoView
-                  player={player}
-                  style={styles.video}
-                  contentFit="contain"
-                  nativeControls={false}
-                />
+                {player ? (
+                  <VideoView
+                    player={player}
+                    style={styles.video}
+                    contentFit="contain"
+                    nativeControls={false}
+                  />
+                ) : (
+                  <View style={[styles.video, { justifyContent: 'center', alignItems: 'center' }]}> 
+                    <Text style={{ color: '#FFF' }}>Unable to load video player</Text>
+                  </View>
+                )}
 
                 {isLoading && (
                   <View style={styles.loadingContainer}>
@@ -281,13 +334,21 @@ export const VideoPlayerScreen: React.FC<VideoPlayerScreenProps> = ({ route, nav
 
                   {/* Center controls */}
                   <View style={styles.centerControls}>
-                    <TouchableOpacity onPress={handlePlayPause} style={styles.playButton}>
-                      <MaterialIcons 
-                        name={player?.playing ? "pause" : "play-arrow"} 
-                        size={48} 
-                        color="#FFF" 
-                      />
-                    </TouchableOpacity>
+                    <View style={styles.centerControlsRow}>
+                      <TouchableOpacity onPress={() => handleSkip(-10)} style={styles.skipButton}>
+                        <MaterialIcons name="replay-10" size={32} color="#FFF" />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={handlePlayPause} style={styles.playButton}>
+                        <MaterialIcons 
+                          name={player?.playing ? "pause" : "play-arrow"} 
+                          size={48} 
+                          color="#FFF" 
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => handleSkip(10)} style={styles.skipButton}>
+                        <MaterialIcons name="forward-10" size={32} color="#FFF" />
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
                   {/* Bottom controls */}
@@ -299,7 +360,7 @@ export const VideoPlayerScreen: React.FC<VideoPlayerScreenProps> = ({ route, nav
                       activeOpacity={1}
                     >
                       <View style={styles.progressBarBackground}>
-                        {player && (
+                        {player && player.duration > 0 && (
                           <View 
                             style={[
                               styles.progressBarFill, 
@@ -320,14 +381,19 @@ export const VideoPlayerScreen: React.FC<VideoPlayerScreenProps> = ({ route, nav
                       </Text>
                       
                       <View style={styles.controlButtons}>
-                        <TouchableOpacity onPress={handlePlayPause}>
+                        <TouchableOpacity onPress={() => handleSkip(-10)}>
+                          <MaterialIcons name="replay-10" size={20} color="#FFF" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={handlePlayPause} style={styles.marginHorizontal}>
                           <MaterialIcons 
                             name={player?.playing ? "pause" : "play-arrow"} 
                             size={24} 
                             color="#FFF" 
                           />
                         </TouchableOpacity>
-                        
+                        <TouchableOpacity onPress={() => handleSkip(10)} style={styles.marginHorizontal}>
+                          <MaterialIcons name="forward-10" size={20} color="#FFF" />
+                        </TouchableOpacity>
                         <TouchableOpacity onPress={toggleFullscreen} style={styles.marginLeft}>
                           <MaterialIcons 
                             name={isFullscreen ? "fullscreen-exit" : "fullscreen"} 
@@ -411,9 +477,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  centerControlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+  },
   playButton: {
     backgroundColor: 'rgba(0,0,0,0.5)',
     borderRadius: 30,
+    padding: 10,
+  },
+  skipButton: {
     padding: 10,
   },
   bottomControls: {
@@ -449,6 +523,9 @@ const styles = StyleSheet.create({
   },
   marginLeft: {
     marginLeft: 16,
+  },
+  marginHorizontal: {
+    marginHorizontal: 8,
   },
   gestureIndicator: {
     position: 'absolute',

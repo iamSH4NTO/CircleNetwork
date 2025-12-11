@@ -32,7 +32,10 @@ const HomeStack = () => {
       <Stack.Screen 
         name="VideoPlayer" 
         component={VideoPlayerScreen as any}
-        options={{ title: 'Video Player' }}
+        options={({ route }: any) => ({
+          title: route.params?.title || 'Video Player',
+          headerShown: false,
+        })}
       />
     </Stack.Navigator>
   );
