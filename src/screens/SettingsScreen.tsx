@@ -9,6 +9,7 @@ import {
   Linking,
   Alert,
   Platform,
+  BackHandler,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
@@ -26,6 +27,7 @@ export const SettingsScreen: React.FC = () => {
   const [preferredPlayer, setPreferredPlayer] = useState<string>('system');
   const [homeDesktopMode, setHomeDesktopMode] = useState<boolean>(false);
   const [billingDesktopMode, setBillingDesktopMode] = useState<boolean>(false);
+  const [showHomeReloadButton, setShowHomeReloadButton] = useState<boolean>(true);
 
   // Load preferred player from storage
   useEffect(() => {
@@ -60,6 +62,20 @@ export const SettingsScreen: React.FC = () => {
     loadDesktopModeSettings();
   }, []);
 
+  // Load reload button setting
+  useEffect(() => {
+    const loadReloadButtonSetting = async () => {
+      try {
+        const showButton = await AsyncStorage.getItem('show_home_reload_button');
+        setShowHomeReloadButton(showButton !== 'false'); // Default to true if not set
+      } catch (error) {
+        console.log('Error loading reload button setting:', error);
+      }
+    };
+
+    loadReloadButtonSetting();
+  }, []);
+
   // Save preferred player to storage
   const savePreferredPlayer = async (playerId: string) => {
     try {
@@ -85,6 +101,16 @@ export const SettingsScreen: React.FC = () => {
     }
   };
 
+  // Save reload button setting
+  const saveReloadButtonSetting = async (value: boolean) => {
+    try {
+      await AsyncStorage.setItem('show_home_reload_button', value.toString());
+      setShowHomeReloadButton(value);
+    } catch (error) {
+      console.log('Error saving reload button setting:', error);
+    }
+  };
+
   const handleShareApp = async () => {
     try {
       Alert.alert(
@@ -96,9 +122,14 @@ export const SettingsScreen: React.FC = () => {
             onPress: () => {
               console.log("Share app");
             },
+            style: "default" as "default"
           },
-          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Cancel", 
+            style: "cancel" as "cancel" 
+          },
         ],
+        { cancelable: true }
       );
     } catch (error) {
       console.error("Share failed:", error);
@@ -120,9 +151,14 @@ export const SettingsScreen: React.FC = () => {
         ...EXTERNAL_PLAYERS.map((player) => ({
           text: player.name,
           onPress: () => savePreferredPlayer(player.id),
+          style: "default" as "default"
         })),
-        { text: 'Cancel', style: 'cancel' }
-      ]
+        { 
+          text: 'Cancel', 
+          style: 'cancel' as 'cancel' 
+        }
+      ],
+      { cancelable: true }
     );
   };
 
@@ -130,26 +166,19 @@ export const SettingsScreen: React.FC = () => {
   const handleExitApp = () => {
     Alert.alert(
       "Exit App",
-      "Are you sure you want to exit?",
+      "Are you sure you want to exit CircleNetwork?",
       [
         {
           text: "Cancel",
-          style: "cancel"
+          style: "cancel" as "cancel"
         },
         {
-          text: "Yes",
-          style: "destructive",
-          onPress: () => {
-            if (Platform.OS === 'android') {
-              // For Android, we can exit the app
-              Alert.alert("Exit", "Press the back button again to exit");
-            } else {
-              // For iOS, we can't really exit the app, so we'll just show a message
-              Alert.alert("Exit", "App will continue running in the background");
-            }
-          }
+          text: "Exit",
+          style: "destructive" as "destructive",
+          onPress: () => BackHandler.exitApp()
         }
-      ]
+      ],
+      { cancelable: true }
     );
   };
 
@@ -219,6 +248,37 @@ export const SettingsScreen: React.FC = () => {
             <Switch
               value={billingDesktopMode}
               onValueChange={(value) => saveDesktopModeSetting('billing', value)}
+              trackColor={{
+                false: theme.colors.border,
+                true: theme.colors.primary,
+              }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+        </View>
+
+        {/* UI Customization Section */}
+        <View style={[styles.sectionCard, { backgroundColor: theme.colors.card }]}>
+          <View style={styles.sectionHeader}>
+            <MaterialIcons
+              name="visibility"
+              size={20}
+              color={theme.colors.primary}
+            />
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+              UI Customization
+            </Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.settingRow}>
+            <Text style={[styles.settingLabel, { color: theme.colors.text }]}>
+              Show Reload Button
+            </Text>
+            <Switch
+              value={showHomeReloadButton}
+              onValueChange={saveReloadButtonSetting}
               trackColor={{
                 false: theme.colors.border,
                 true: theme.colors.primary,

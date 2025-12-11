@@ -2,7 +2,6 @@ import React, { useState, useRef, useLayoutEffect, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert, AppState, AppStateStatus } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { WebView as RNWebView } from 'react-native-webview';
-import * as Sharing from 'expo-sharing';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { CustomWebView } from '../components/CustomWebView';
@@ -17,6 +16,7 @@ export const HomeScreen: React.FC = () => {
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [useDesktopMode, setUseDesktopMode] = useState(false);
+  const [showReloadButton, setShowReloadButton] = useState<boolean>(true);
 
   // Load desktop mode setting
   const loadDesktopModeSetting = async () => {
@@ -28,9 +28,20 @@ export const HomeScreen: React.FC = () => {
     }
   };
 
+  // Load reload button setting
+  const loadReloadButtonSetting = async () => {
+    try {
+      const showButton = await AsyncStorage.getItem('show_home_reload_button');
+      setShowReloadButton(showButton !== 'false'); // Default to true if not set
+    } catch (error) {
+      console.log('Error loading reload button setting:', error);
+    }
+  };
+
   // Load desktop mode setting on mount
   useEffect(() => {
     loadDesktopModeSetting();
+    loadReloadButtonSetting();
   }, []);
 
   // Listen for app state changes to refresh settings
@@ -39,6 +50,7 @@ export const HomeScreen: React.FC = () => {
       if (nextAppState === 'active') {
         // App came to foreground, reload settings
         loadDesktopModeSetting();
+        loadReloadButtonSetting();
       }
     };
 
@@ -47,6 +59,7 @@ export const HomeScreen: React.FC = () => {
     // Also listen for focus events on navigation
     const unsubscribeFocus = navigation.addListener('focus', () => {
       loadDesktopModeSetting();
+      loadReloadButtonSetting();
     });
 
     return () => {
@@ -94,27 +107,9 @@ export const HomeScreen: React.FC = () => {
     });
   }, [navigation, canGoBack, canGoForward, theme]);
 
-  const handleShare = async () => {
-    try {
-      const isAvailable = await Sharing.isAvailableAsync();
-      if (isAvailable) {
-        Alert.alert(
-          'Share URL',
-          currentUrl,
-          [
-            {
-              text: 'Copy',
-              onPress: () => {
-                Alert.alert('Copied', 'URL copied to clipboard');
-              },
-            },
-            { text: 'Cancel', style: 'cancel' },
-          ]
-        );
-      }
-    } catch (error) {
-      console.error('Share failed:', error);
-    }
+  // Handle reload button press
+  const handleReload = () => {
+    webViewRef.current?.reload();
   };
   
   const handleStreamVideo = (url: string, title: string) => {
@@ -135,12 +130,14 @@ export const HomeScreen: React.FC = () => {
         webViewRef={webViewRef as any}
       />
       
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-        onPress={handleShare}
-      >
-        <MaterialIcons name="share" size={24} color="#FFFFFF" />
-      </TouchableOpacity>
+      {showReloadButton && (
+        <TouchableOpacity
+          style={[styles.fab, { backgroundColor: theme.colors.error }]}
+          onPress={handleReload}
+        >
+          <MaterialIcons name="refresh" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 };

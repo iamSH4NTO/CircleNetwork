@@ -21,18 +21,20 @@ const MainTabs = () => {
     const backAction = () => {
       Alert.alert(
         "Exit App",
-        "Are you sure you want to exit?",
+        "Are you sure you want to exit CircleNetwork?",
         [
           {
             text: "Cancel",
             onPress: () => null,
-            style: "cancel"
+            style: "cancel" as "cancel"
           },
           { 
-            text: "Yes", 
-            onPress: () => BackHandler.exitApp() 
+            text: "Exit", 
+            onPress: () => BackHandler.exitApp(),
+            style: "destructive" as "destructive"
           }
-        ]
+        ],
+        { cancelable: true }
       );
       return true;
     };

@@ -100,11 +100,11 @@ export const CustomWebView: React.FC<CustomWebViewProps> = ({
       const filename = url.split('/').pop() || 'file';
       
       Alert.alert(
-        isVideo ? 'Video File' : 'Media File',
-        'What would you like to do?',
+        isVideo ? 'Video File Detected' : 'Media File Detected',
+        `What would you like to do with "${filename}"?`,
         [
           {
-            text: isVideo ? 'Stream' : 'Open',
+            text: isVideo ? 'Stream Video' : 'Open File',
             onPress: () => {
               if (isVideo && onStreamVideo) {
                 onStreamVideo(url, filename);
@@ -112,6 +112,7 @@ export const CustomWebView: React.FC<CustomWebViewProps> = ({
                 Linking.openURL(url);
               }
             },
+            style: 'default' as 'default'
           },
           {
             text: 'Download',
@@ -125,12 +126,14 @@ export const CustomWebView: React.FC<CustomWebViewProps> = ({
                 Linking.openURL(url);
               }
             },
+            style: 'default' as 'default'
           },
           {
             text: 'Cancel',
-            style: 'cancel',
-          },
-        ]
+            style: 'cancel' as 'cancel'
+          }
+        ],
+        { cancelable: true }
       );
       
       return false;

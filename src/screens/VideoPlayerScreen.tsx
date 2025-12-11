@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Linking, Alert } from 'react-native';
+import { Linking, Alert, StyleSheet, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface VideoPlayerScreenProps {
@@ -55,11 +55,31 @@ export const VideoPlayerScreen: React.FC<VideoPlayerScreenProps> = ({ route, nav
         }
         
         if (!success) {
-          Alert.alert('Error', 'Could not open video in external player');
+          Alert.alert(
+            'Connection Error',
+            'Could not open video in external player. Please check your internet connection and try again.',
+            [
+              {
+                text: 'OK',
+                style: 'default'
+              }
+            ],
+            { cancelable: true }
+          );
         }
       } catch (error) {
         console.log('Error opening in external player:', error);
-        Alert.alert('Error', 'Could not open video in external player');
+        Alert.alert(
+          'Player Error',
+          'An unexpected error occurred while trying to open the video player.',
+          [
+            {
+              text: 'OK',
+              style: 'default'
+            }
+          ],
+          { cancelable: true }
+        );
       } finally {
         // Navigate back immediately after attempting to open
         navigation.goBack();
@@ -98,17 +118,19 @@ export const VideoPlayerScreen: React.FC<VideoPlayerScreenProps> = ({ route, nav
           onPress: () => {
             savePreferredPlayer(player.id);
             openVideoWithSelectedPlayer(player.id);
-          }
+          },
+          style: 'default' as 'default'
         })),
         {
           text: 'Cancel',
-          style: 'cancel',
+          style: 'cancel' as 'cancel',
           onPress: () => {
             // Even if cancelled, still try to open with system player
             openVideoWithSelectedPlayer('system');
           }
         }
-      ]
+      ],
+      { cancelable: true }
     );
   };
 
@@ -144,11 +166,31 @@ export const VideoPlayerScreen: React.FC<VideoPlayerScreenProps> = ({ route, nav
       }
       
       if (!success) {
-        Alert.alert('Error', 'Could not open video in external player');
+        Alert.alert(
+          'Connection Error',
+          'Could not open video in external player. Please check your internet connection and try again.',
+          [
+            {
+              text: 'OK',
+              style: 'default'
+            }
+          ],
+          { cancelable: true }
+        );
       }
     } catch (error) {
       console.log('Error opening in external player:', error);
-      Alert.alert('Error', 'Could not open video in external player');
+      Alert.alert(
+        'Player Error',
+        'An unexpected error occurred while trying to open the video player.',
+        [
+          {
+            text: 'OK',
+            style: 'default'
+          }
+        ],
+        { cancelable: true }
+      );
     } finally {
       // Navigate back immediately after attempting to open
       navigation.goBack();
