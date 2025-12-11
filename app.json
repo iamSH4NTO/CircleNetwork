@@ -53,7 +53,9 @@
           "savePhotosPermission": "Allow CircleNetwork to save downloaded files to your photo library.",
           "isAccessMediaLocationEnabled": true
         }
-      ]
+      ],
+      "expo-screen-orientation",
+      "expo-video"
     ],
     "extra": {
       "eas": {

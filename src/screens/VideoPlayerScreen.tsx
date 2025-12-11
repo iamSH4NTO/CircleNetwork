@@ -1,8 +1,30 @@
-import React, { useState, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Text,
+  ActivityIndicator,
+  Dimensions,
+  StatusBar,
+} from 'react-native';
+import { VideoView, useVideoPlayer } from 'expo-video';
+import type { VideoPlayer } from 'expo-video';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import { PanGestureHandler, TapGestureHandler, State } from 'react-native-gesture-handler';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  interpolate,
+  Extrapolate,
+  runOnJS,
+} from 'react-native-reanimated';
+import * as ScreenOrientation from 'expo-screen-orientation';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface VideoPlayerScreenProps {
   route: {
@@ -17,50 +39,316 @@ interface VideoPlayerScreenProps {
 export const VideoPlayerScreen: React.FC<VideoPlayerScreenProps> = ({ route, navigation }) => {
   const { videoUrl, title } = route.params;
   const { theme } = useTheme();
-  const videoRef = useRef<Video>(null);
-  const [status, setStatus] = useState<AVPlaybackStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const [volume, setVolume] = useState(1);
+  const [brightness, setBrightness] = useState(0.5);
+  
+  // Create video player instance
+  const player = useVideoPlayer({ uri: videoUrl }, (player) => {
+    player.loop = false;
+    player.muted = false;
+    player.volume = volume;
+    player.play();
+    
+    // Listen for events
+    player.addListener('sourceLoad', () => {
+      setIsLoading(false);
+    });
+    
+    player.addListener('statusChange', (payload) => {
+      if (payload.status === 'loading') {
+        setIsLoading(true);
+      } else if (payload.status === 'readyToPlay') {
+        setIsLoading(false);
+      }
+    });
+  });
 
+  // Animation values
+  const controlsOpacity = useSharedValue(1);
+  const volumeOpacity = useSharedValue(0);
+  const brightnessOpacity = useSharedValue(0);
+  const volumeValue = useSharedValue(1);
+  const brightnessValue = useSharedValue(0.5);
+
+  // Gesture handlers refs
+  const panGestureRef = useRef(null);
+  const tapGestureRef = useRef(null);
+
+  // Animated styles
+  const controlsAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: controlsOpacity.value,
+    };
+  });
+
+  const volumeAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: volumeOpacity.value,
+    };
+  });
+
+  const brightnessAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: brightnessOpacity.value,
+    };
+  });
+
+  // Toggle play/pause
   const handlePlayPause = async () => {
-    if (videoRef.current) {
-      if (status?.isLoaded && status.isPlaying) {
-        await videoRef.current.pauseAsync();
+    if (player) {
+      if (player.playing) {
+        player.pause();
       } else {
-        await videoRef.current.playAsync();
+        player.play();
       }
     }
   };
 
+  // Toggle fullscreen
+  const toggleFullscreen = async () => {
+    if (isFullscreen) {
+      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
+      setIsFullscreen(false);
+    } else {
+      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+      setIsFullscreen(true);
+    }
+  };
+
+  // Handle double tap to play/pause
+  const onDoubleTap = async () => {
+    handlePlayPause();
+  };
+
+  // Handle single tap to show/hide controls
+  const onSingleTap = ({ nativeEvent }: any) => {
+    if (nativeEvent.state === State.ACTIVE) {
+      setShowControls(prev => !prev);
+      controlsOpacity.value = withTiming(showControls ? 0 : 1, { duration: 300 });
+    }
+  };
+
+  // Handle pan gestures for volume and brightness
+  const onPanGestureEvent = (event: any) => {
+    const { translationX, translationY, absoluteX } = event.nativeEvent;
+    
+    // Left side of screen - brightness control
+    if (absoluteX < SCREEN_WIDTH / 2) {
+      const newBrightness = Math.min(1, Math.max(0, brightnessValue.value - translationY / SCREEN_HEIGHT));
+      brightnessValue.value = newBrightness;
+      brightnessOpacity.value = withTiming(1, { duration: 150 });
+      
+      // Update brightness (would need device-specific implementation)
+      runOnJS(setBrightness)(newBrightness);
+    } 
+    // Right side of screen - volume control
+    else {
+      const newVolume = Math.min(1, Math.max(0, volumeValue.value - translationY / SCREEN_HEIGHT));
+      volumeValue.value = newVolume;
+      volumeOpacity.value = withTiming(1, { duration: 150 });
+      
+      // Update volume
+      if (player) {
+        player.volume = newVolume;
+        runOnJS(setVolume)(newVolume);
+      }
+    }
+  };
+
+  // Reset gesture indicators
+  const onHandlerStateChange = (event: any) => {
+    if (event.nativeEvent.oldState === State.ACTIVE) {
+      volumeOpacity.value = withTiming(0, { duration: 1000 });
+      brightnessOpacity.value = withTiming(0, { duration: 1000 });
+    }
+  };
+
+  // Format time in MM:SS
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+  };
+
+  // Seek to position
+  const seekTo = async (position: number) => {
+    if (player) {
+      player.seekBy(position);
+    }
+  };
+
+  // Handle progress bar press
+  const onProgressBarPress = (event: any) => {
+    if (player) {
+      const position = event.nativeEvent.locationX;
+      const progressBarWidth = SCREEN_WIDTH - 32; // Accounting for padding
+      const percentage = position / progressBarWidth;
+      const newPosition = percentage * player.duration;
+      seekTo(newPosition);
+    }
+  };
+
+  // Back button handler
+  const handleBack = () => {
+    if (isFullscreen) {
+      toggleFullscreen();
+    } else {
+      navigation.goBack();
+    }
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (isFullscreen) {
+        ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
+      }
+    };
+  }, [isFullscreen]);
+
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Video
-        ref={videoRef}
-        source={{ uri: videoUrl }}
-        style={styles.video}
-        useNativeControls
-        resizeMode={ResizeMode.CONTAIN}
-        onPlaybackStatusUpdate={(status) => setStatus(status)}
-        onLoadStart={() => setIsLoading(true)}
-        onLoad={() => setIsLoading(false)}
-      />
+    <GestureHandlerRootView style={styles.container}>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <StatusBar hidden={isFullscreen} />
+        
+        <PanGestureHandler
+          ref={panGestureRef}
+          onGestureEvent={onPanGestureEvent}
+          onHandlerStateChange={onHandlerStateChange}>
+          <TapGestureHandler
+            ref={tapGestureRef}
+            onHandlerStateChange={onSingleTap}
+            numberOfTaps={1}>
+            <TapGestureHandler
+              onHandlerStateChange={({ nativeEvent }) => {
+                if (nativeEvent.state === State.ACTIVE) {
+                  runOnJS(onDoubleTap)();
+                }
+              }}
+              numberOfTaps={2}>
+              <Animated.View style={styles.videoContainer}>
+                <VideoView
+                  player={player}
+                  style={styles.video}
+                  contentFit="contain"
+                  nativeControls={false}
+                />
 
-      {isLoading && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.colors.text }]}>
-            Loading video...
-          </Text>
-        </View>
-      )}
+                {isLoading && (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={theme.colors.primary} />
+                    <Text style={[styles.loadingText, { color: theme.colors.text }]}>
+                      Loading video...
+                    </Text>
+                  </View>
+                )}
 
-      {title && (
-        <View style={[styles.titleBar, { backgroundColor: theme.colors.card }]}>
-          <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={1}>
-            {title}
-          </Text>
-        </View>
-      )}
-    </View>
+                {/* Volume indicator */}
+                <Animated.View style={[styles.gestureIndicator, styles.volumeIndicator, volumeAnimatedStyle]}>
+                  <MaterialIcons name="volume-up" size={24} color="#FFF" />
+                  <Text style={styles.indicatorText}>{Math.round(volumeValue.value * 100)}%</Text>
+                </Animated.View>
+
+                {/* Brightness indicator */}
+                <Animated.View style={[styles.gestureIndicator, styles.brightnessIndicator, brightnessAnimatedStyle]}>
+                  <MaterialIcons name="brightness-6" size={24} color="#FFF" />
+                  <Text style={styles.indicatorText}>{Math.round(brightnessValue.value * 100)}%</Text>
+                </Animated.View>
+
+                {/* Controls overlay */}
+                <Animated.View style={[styles.controlsOverlay, controlsAnimatedStyle]}>
+                  {/* Top bar */}
+                  <View style={[styles.topBar, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+                    <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+                      <MaterialIcons name="arrow-back" size={24} color="#FFF" />
+                    </TouchableOpacity>
+                    {title && (
+                      <Text style={styles.title} numberOfLines={1}>
+                        {title}
+                      </Text>
+                    )}
+                    <TouchableOpacity onPress={toggleFullscreen} style={styles.fullscreenButton}>
+                      <MaterialIcons 
+                        name={isFullscreen ? "fullscreen-exit" : "fullscreen"} 
+                        size={24} 
+                        color="#FFF" 
+                      />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Center controls */}
+                  <View style={styles.centerControls}>
+                    <TouchableOpacity onPress={handlePlayPause} style={styles.playButton}>
+                      <MaterialIcons 
+                        name={player?.playing ? "pause" : "play-arrow"} 
+                        size={48} 
+                        color="#FFF" 
+                      />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Bottom controls */}
+                  <View style={[styles.bottomControls, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+                    {/* Progress bar */}
+                    <TouchableOpacity 
+                      style={styles.progressBarContainer} 
+                      onPress={onProgressBarPress}
+                      activeOpacity={1}
+                    >
+                      <View style={styles.progressBarBackground}>
+                        {player && (
+                          <View 
+                            style={[
+                              styles.progressBarFill, 
+                              { 
+                                width: `${(player.currentTime / player.duration) * 100}%`,
+                                backgroundColor: theme.colors.primary 
+                              }
+                            ]} 
+                          />
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                    
+                    {/* Time and controls */}
+                    <View style={styles.timeControls}>
+                      <Text style={styles.timeText}>
+                        {player ? formatTime(player.currentTime) : '0:00'}
+                      </Text>
+                      
+                      <View style={styles.controlButtons}>
+                        <TouchableOpacity onPress={handlePlayPause}>
+                          <MaterialIcons 
+                            name={player?.playing ? "pause" : "play-arrow"} 
+                            size={24} 
+                            color="#FFF" 
+                          />
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity onPress={toggleFullscreen} style={styles.marginLeft}>
+                          <MaterialIcons 
+                            name={isFullscreen ? "fullscreen-exit" : "fullscreen"} 
+                            size={24} 
+                            color="#FFF" 
+                          />
+                        </TouchableOpacity>
+                      </View>
+                      
+                      <Text style={styles.timeText}>
+                        {player ? formatTime(player.duration) : '0:00'}
+                      </Text>
+                    </View>
+                  </View>
+                </Animated.View>
+              </Animated.View>
+            </TapGestureHandler>
+          </TapGestureHandler>
+        </PanGestureHandler>
+      </View>
+    </GestureHandlerRootView>
   );
 };
 
@@ -68,6 +356,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
+  },
+  videoContainer: {
+    flex: 1,
+    backgroundColor: '#000',
   },
   video: {
     width: '100%',
@@ -86,15 +378,97 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
   },
-  titleBar: {
+  controlsOverlay: {
     position: 'absolute',
-    bottom: 0,
+    top: 0,
     left: 0,
     right: 0,
-    padding: 16,
+    bottom: 0,
+    justifyContent: 'space-between',
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  backButton: {
+    padding: 8,
   },
   title: {
+    flex: 1,
+    color: '#FFF',
     fontSize: 16,
     fontWeight: '600',
+    textAlign: 'center',
+    marginHorizontal: 16,
+  },
+  fullscreenButton: {
+    padding: 8,
+  },
+  centerControls: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playButton: {
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 30,
+    padding: 10,
+  },
+  bottomControls: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  progressBarContainer: {
+    height: 30,
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  progressBarBackground: {
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 2,
+  },
+  progressBarFill: {
+    height: 4,
+    borderRadius: 2,
+  },
+  timeControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  timeText: {
+    color: '#FFF',
+    fontSize: 12,
+  },
+  controlButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  marginLeft: {
+    marginLeft: 16,
+  },
+  gestureIndicator: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 8,
+    padding: 8,
+  },
+  volumeIndicator: {
+    top: '50%',
+    right: 32,
+  },
+  brightnessIndicator: {
+    top: '50%',
+    left: 32,
+  },
+  indicatorText: {
+    color: '#FFF',
+    marginLeft: 8,
+    fontSize: 16,
   },
 });
