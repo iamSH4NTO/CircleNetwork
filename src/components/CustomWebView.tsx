@@ -8,6 +8,7 @@ import {
   ScrollView,
   Linking,
   Alert,
+  Platform,
 } from 'react-native';
 import { WebView as RNWebView } from 'react-native-webview';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -113,7 +114,14 @@ export const CustomWebView: React.FC<CustomWebViewProps> = ({
           {
             text: 'Download',
             onPress: () => {
-              Linking.openURL(url);
+              // Use the system download manager
+              if (Platform.OS === 'android') {
+                // For Android, we can use the download attribute or let the system handle it
+                Linking.openURL(url);
+              } else {
+                // For iOS, open in browser which will handle the download
+                Linking.openURL(url);
+              }
             },
           },
           {
@@ -229,6 +237,13 @@ export const CustomWebView: React.FC<CustomWebViewProps> = ({
           true;
         ` : undefined}
         style={{ backgroundColor: theme.colors.background }}
+        // Enable download detection for Android
+        {...(Platform.OS === 'android' ? {
+          onDownloadStart: (syntheticEvent: { nativeEvent: { downloadUrl: string } }) => {
+            const { nativeEvent } = syntheticEvent;
+            Linking.openURL(nativeEvent.downloadUrl);
+          }
+        } : {})}
       />
       {loading && isFirstLoad && (
         <View style={[styles.loadingBar, { backgroundColor: theme.colors.primary }]}>

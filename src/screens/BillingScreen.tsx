@@ -1,10 +1,12 @@
-import React, { useState, useRef, useLayoutEffect } from 'react';
+import React, { useState, useRef, useLayoutEffect, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { WebView as RNWebView } from 'react-native-webview';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { CustomWebView } from '../components/CustomWebView';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DESKTOP_USER_AGENT } from '../utils/WebViewUtils';
 
 export const BillingScreen: React.FC = () => {
   const { theme } = useTheme();
@@ -12,6 +14,21 @@ export const BillingScreen: React.FC = () => {
   const webViewRef = useRef<RNWebView>(null);
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
+  const [useDesktopMode, setUseDesktopMode] = useState(false);
+
+  // Load desktop mode setting
+  useEffect(() => {
+    const loadDesktopModeSetting = async () => {
+      try {
+        const desktopMode = await AsyncStorage.getItem('billing_desktop_mode');
+        setUseDesktopMode(desktopMode === 'true');
+      } catch (error) {
+        console.log('Error loading billing desktop mode setting:', error);
+      }
+    };
+
+    loadDesktopModeSetting();
+  }, []);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -56,6 +73,7 @@ export const BillingScreen: React.FC = () => {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <CustomWebView 
         url="https://billing.circlenetworkbd.net/"
+        userAgent={useDesktopMode ? DESKTOP_USER_AGENT : undefined}
         onNavigationStateChange={(back, forward) => {
           setCanGoBack(back);
           setCanGoForward(forward);

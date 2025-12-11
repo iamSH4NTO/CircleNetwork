@@ -23,6 +23,8 @@ const EXTERNAL_PLAYERS = [
 export const SettingsScreen: React.FC = () => {
   const { theme, isDark, toggleTheme } = useTheme();
   const [preferredPlayer, setPreferredPlayer] = useState<string>('system');
+  const [homeDesktopMode, setHomeDesktopMode] = useState<boolean>(false);
+  const [billingDesktopMode, setBillingDesktopMode] = useState<boolean>(false);
 
   // Load preferred player from storage
   useEffect(() => {
@@ -40,6 +42,23 @@ export const SettingsScreen: React.FC = () => {
     loadPreferredPlayer();
   }, []);
 
+  // Load desktop mode settings
+  useEffect(() => {
+    const loadDesktopModeSettings = async () => {
+      try {
+        const homeMode = await AsyncStorage.getItem('home_desktop_mode');
+        const billingMode = await AsyncStorage.getItem('billing_desktop_mode');
+        
+        setHomeDesktopMode(homeMode === 'true');
+        setBillingDesktopMode(billingMode === 'true');
+      } catch (error) {
+        console.log('Error loading desktop mode settings:', error);
+      }
+    };
+
+    loadDesktopModeSettings();
+  }, []);
+
   // Save preferred player to storage
   const savePreferredPlayer = async (playerId: string) => {
     try {
@@ -47,6 +66,21 @@ export const SettingsScreen: React.FC = () => {
       setPreferredPlayer(playerId);
     } catch (error) {
       console.log('Error saving preferred player:', error);
+    }
+  };
+
+  // Save desktop mode settings
+  const saveDesktopModeSetting = async (setting: 'home' | 'billing', value: boolean) => {
+    try {
+      if (setting === 'home') {
+        await AsyncStorage.setItem('home_desktop_mode', value.toString());
+        setHomeDesktopMode(value);
+      } else {
+        await AsyncStorage.setItem('billing_desktop_mode', value.toString());
+        setBillingDesktopMode(value);
+      }
+    } catch (error) {
+      console.log('Error saving desktop mode setting:', error);
     }
   };
 
@@ -127,6 +161,70 @@ export const SettingsScreen: React.FC = () => {
             <Switch
               value={isDark}
               onValueChange={toggleTheme}
+              trackColor={{
+                false: theme.colors.border,
+                true: theme.colors.primary,
+              }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+        </View>
+
+        {/* Desktop Mode Section */}
+        <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+          <View style={styles.cardHeader}>
+            <MaterialIcons
+              name="computer"
+              size={24}
+              color={theme.colors.primary}
+            />
+            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
+              Desktop Mode
+            </Text>
+          </View>
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingLabel, { color: theme.colors.text }]}>
+                Home Screen
+              </Text>
+              <Text
+                style={[
+                  styles.settingDescription,
+                  { color: theme.colors.secondary },
+                ]}
+              >
+                {homeDesktopMode ? "Desktop Mode" : "Mobile Mode"}
+              </Text>
+            </View>
+            <Switch
+              value={homeDesktopMode}
+              onValueChange={(value) => saveDesktopModeSetting('home', value)}
+              trackColor={{
+                false: theme.colors.border,
+                true: theme.colors.primary,
+              }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+
+          <View style={[styles.settingRow, { marginTop: 8 }]}>
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingLabel, { color: theme.colors.text }]}>
+                Billing Screen
+              </Text>
+              <Text
+                style={[
+                  styles.settingDescription,
+                  { color: theme.colors.secondary },
+                ]}
+              >
+                {billingDesktopMode ? "Desktop Mode" : "Mobile Mode"}
+              </Text>
+            </View>
+            <Switch
+              value={billingDesktopMode}
+              onValueChange={(value) => saveDesktopModeSetting('billing', value)}
               trackColor={{
                 false: theme.colors.border,
                 true: theme.colors.primary,
