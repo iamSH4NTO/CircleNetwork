@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Image, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 
 interface SplashScreenProps {
@@ -31,11 +31,9 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
         { backgroundColor: theme.colors.background, opacity: fadeAnim },
       ]}
     >
-      <Image
-        source={require('../../assets/splash-icon.png')}
-        style={styles.logo}
-        resizeMode="contain"
-      />
+      <Text style={[styles.title, { color: theme.colors.text }]}>
+        CircleNetwork
+      </Text>
     </Animated.View>
   );
 };
@@ -46,8 +44,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  logo: {
-    width: 200,
-    height: 200,
+  title: {
+    fontSize: 42,
+    fontWeight: 'bold',
+    letterSpacing: 1,
   },
 });
