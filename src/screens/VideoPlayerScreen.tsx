@@ -45,6 +45,7 @@ export const VideoPlayerScreen: React.FC<VideoPlayerScreenProps> = ({ route, nav
   const [showControls, setShowControls] = useState(true);
   const [volume, setVolume] = useState(1);
   const [brightness, setBrightness] = useState(0.5);
+  const [isAutoRotate, setIsAutoRotate] = useState(false);
   
   // Create video player instance
   const player = useVideoPlayer({ uri: videoUrl }, (player) => {
@@ -123,6 +124,64 @@ export const VideoPlayerScreen: React.FC<VideoPlayerScreenProps> = ({ route, nav
     }
   };
 
+  // Rotate to specific orientation
+  const rotateToOrientation = async (orientation: ScreenOrientation.OrientationLock) => {
+    try {
+      await ScreenOrientation.lockAsync(orientation);
+      // Update fullscreen state based on orientation
+      const isLandscape = orientation === ScreenOrientation.OrientationLock.LANDSCAPE_LEFT || 
+                         orientation === ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT;
+      setIsFullscreen(isLandscape);
+    } catch (error) {
+      console.log('Error rotating to orientation:', error);
+    }
+  };
+
+  // Toggle auto-rotate
+  const toggleAutoRotate = async () => {
+    try {
+      if (isAutoRotate) {
+        // Disable auto-rotate, lock to current orientation
+        const currentOrientation = await ScreenOrientation.getOrientationAsync();
+        // Map Orientation to OrientationLock
+        let lockOrientation: ScreenOrientation.OrientationLock;
+        switch (currentOrientation) {
+          case ScreenOrientation.Orientation.PORTRAIT_UP:
+            lockOrientation = ScreenOrientation.OrientationLock.PORTRAIT_UP;
+            break;
+          case ScreenOrientation.Orientation.PORTRAIT_DOWN:
+            lockOrientation = ScreenOrientation.OrientationLock.PORTRAIT_DOWN;
+            break;
+          case ScreenOrientation.Orientation.LANDSCAPE_LEFT:
+            lockOrientation = ScreenOrientation.OrientationLock.LANDSCAPE_LEFT;
+            break;
+          case ScreenOrientation.Orientation.LANDSCAPE_RIGHT:
+            lockOrientation = ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT;
+            break;
+          default:
+            lockOrientation = ScreenOrientation.OrientationLock.PORTRAIT_UP;
+        }
+        await ScreenOrientation.lockAsync(lockOrientation);
+      } else {
+        // Enable auto-rotate
+        await ScreenOrientation.unlockAsync();
+      }
+      setIsAutoRotate(!isAutoRotate);
+    } catch (error) {
+      console.log('Error toggling auto-rotate:', error);
+    }
+  };
+
+  // Handle orientation changes
+  const handleOrientationChange = (orientationInfo: ScreenOrientation.OrientationInfo) => {
+    if (isAutoRotate) {
+      // Update fullscreen state based on new orientation
+      const isLandscape = orientationInfo.orientation === ScreenOrientation.Orientation.LANDSCAPE_LEFT || 
+                         orientationInfo.orientation === ScreenOrientation.Orientation.LANDSCAPE_RIGHT;
+      setIsFullscreen(isLandscape);
+    }
+  };
+
   // Toggle fullscreen
   const toggleFullscreen = async () => {
     try {
@@ -130,6 +189,7 @@ export const VideoPlayerScreen: React.FC<VideoPlayerScreenProps> = ({ route, nav
         // Exit fullscreen
         await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
         setIsFullscreen(false);
+        setIsAutoRotate(false); // Disable auto-rotate when exiting fullscreen
       } else {
         // Enter fullscreen
         await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_LEFT);
@@ -241,6 +301,15 @@ export const VideoPlayerScreen: React.FC<VideoPlayerScreenProps> = ({ route, nav
       StatusBar.setHidden(false);
     };
   }, [navigation]);
+
+  // Add orientation change listener
+  useEffect(() => {
+    const subscription = ScreenOrientation.addOrientationChangeListener(handleOrientationChange);
+    
+    return () => {
+      ScreenOrientation.removeOrientationChangeListener(subscription);
+    };
+  }, [isAutoRotate]);
 
   // Lock initial orientation
   useEffect(() => {
@@ -394,6 +463,23 @@ export const VideoPlayerScreen: React.FC<VideoPlayerScreenProps> = ({ route, nav
                         <TouchableOpacity onPress={() => handleSkip(10)} style={styles.marginHorizontal}>
                           <MaterialIcons name="forward-10" size={20} color="#FFF" />
                         </TouchableOpacity>
+                        
+                        {/* Rotate Buttons - Only visible in fullscreen */}
+                        {isFullscreen && (
+                          <>
+                            <TouchableOpacity onPress={() => rotateToOrientation(ScreenOrientation.OrientationLock.LANDSCAPE_LEFT)} style={styles.marginLeft}>
+                              <MaterialIcons name="screen-rotation" size={24} color="#FFF" />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={toggleAutoRotate} style={styles.marginLeft}>
+                              <MaterialIcons 
+                                name={isAutoRotate ? "auto-awesome" : "auto-awesome-motion"} 
+                                size={24} 
+                                color={isAutoRotate ? "#00AAEA" : "#FFF"} 
+                              />
+                            </TouchableOpacity>
+                          </>
+                        )}
+                        
                         <TouchableOpacity onPress={toggleFullscreen} style={styles.marginLeft}>
                           <MaterialIcons 
                             name={isFullscreen ? "fullscreen-exit" : "fullscreen"} 
