@@ -111,6 +111,12 @@ export const CustomWebView: React.FC<CustomWebViewProps> = ({
             },
           },
           {
+            text: 'Download',
+            onPress: () => {
+              Linking.openURL(url);
+            },
+          },
+          {
             text: 'Cancel',
             style: 'cancel',
           },

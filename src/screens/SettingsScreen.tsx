@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,10 +11,44 @@ import {
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
-import { useSettingsStore } from "../store/SettingsStore";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Define external player options
+const EXTERNAL_PLAYERS = [
+  { id: 'vlc', name: 'VLC Player' },
+  { id: 'mxplayer', name: 'MX Player' },
+  { id: 'system', name: 'System Player' },
+];
 
 export const SettingsScreen: React.FC = () => {
   const { theme, isDark, toggleTheme } = useTheme();
+  const [preferredPlayer, setPreferredPlayer] = useState<string>('system');
+
+  // Load preferred player from storage
+  useEffect(() => {
+    const loadPreferredPlayer = async () => {
+      try {
+        const savedPlayer = await AsyncStorage.getItem('preferred_player');
+        if (savedPlayer) {
+          setPreferredPlayer(savedPlayer);
+        }
+      } catch (error) {
+        console.log('Error loading preferred player:', error);
+      }
+    };
+
+    loadPreferredPlayer();
+  }, []);
+
+  // Save preferred player to storage
+  const savePreferredPlayer = async (playerId: string) => {
+    try {
+      await AsyncStorage.setItem('preferred_player', playerId);
+      setPreferredPlayer(playerId);
+    } catch (error) {
+      console.log('Error saving preferred player:', error);
+    }
+  };
 
   const handleShareApp = async () => {
     try {
@@ -38,6 +72,24 @@ export const SettingsScreen: React.FC = () => {
 
   const handleDevLink = () => {
     Linking.openURL("https://github.com/iamsh4nto");
+  };
+
+  // Show player selection dialog
+  const showPlayerSelectionDialog = () => {
+    const currentPlayer = EXTERNAL_PLAYERS.find(p => p.id === preferredPlayer);
+    
+    Alert.alert(
+      'Default Video Player',
+      `Current: ${currentPlayer?.name || 'System Player'}\n\nSelect your preferred video player for streaming:`,
+      [
+        ...EXTERNAL_PLAYERS.map((player) => ({
+          text: player.name,
+          onPress: () => savePreferredPlayer(player.id),
+          isPreferred: player.id === preferredPlayer
+        })),
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
   };
 
   return (
@@ -82,6 +134,41 @@ export const SettingsScreen: React.FC = () => {
               thumbColor="#FFFFFF"
             />
           </View>
+        </View>
+
+        {/* Player Settings */}
+        <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+          <View style={styles.cardHeader}>
+            <MaterialIcons
+              name="video-library"
+              size={24}
+              color={theme.colors.primary}
+            />
+            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
+              Video Player
+            </Text>
+          </View>
+
+          <TouchableOpacity style={styles.settingRow} onPress={showPlayerSelectionDialog}>
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingLabel, { color: theme.colors.text }]}>
+                Default Player
+              </Text>
+              <Text
+                style={[
+                  styles.settingDescription,
+                  { color: theme.colors.secondary },
+                ]}
+              >
+                {EXTERNAL_PLAYERS.find(p => p.id === preferredPlayer)?.name || 'System Player'}
+              </Text>
+            </View>
+            <MaterialIcons
+              name="chevron-right"
+              size={24}
+              color={theme.colors.secondary}
+            />
+          </TouchableOpacity>
         </View>
 
         {/* Share Section */}

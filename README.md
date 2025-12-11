@@ -12,6 +12,8 @@ A full-featured Expo React Native application with WebViews, theme settings, fil
 - ✅ **Offline Detection**: Shows message when network is unavailable
 - ✅ **Share Functionality**: Share current page URL and app
 - ✅ **Download Support**: File download handling
+- ✅ **Video Streaming**: Stream videos in external players (VLC, MX Player, etc.)
+- ✅ **Player Selection**: Choose and remember your preferred video player
 - ✅ **Modern UI**: Material Design icons and smooth transitions
 
 ## Tech Stack
@@ -41,12 +43,13 @@ CircleNetwork/
 │   ├── screens/
 │   │   ├── HomeScreen.tsx         # Home screen (Desktop mode)
 │   │   ├── BillingScreen.tsx      # Billing screen (Mobile mode)
-│   │   └── SettingsScreen.tsx     # Settings screen
+│   │   ├── SettingsScreen.tsx     # Settings screen
+│   │   └── VideoPlayerScreen.tsx # External video player
 │   ├── store/
 │   │   └── SettingsStore.ts       # Zustand store
 │   ├── utils/
 │   │   ├── WebViewUtils.ts        # WebView utilities
-│   │   └── DownloadManager.ts     # Download handling
+│   │   └── MediaUtils.ts         # Media file utilities
 │   └── types.ts                   # TypeScript types
 ├── App.tsx                        # App entry point
 ├── app.json                       # Expo configuration
@@ -88,77 +91,17 @@ CircleNetwork/
    - Press `a` for Android emulator
    - Scan QR code with Expo Go app for physical device
 
-## Running the App
+## Video Streaming
 
-### Development Mode
+The app now supports streaming videos in external players:
 
-```bash
-# Start Expo dev server
-npx expo start
-
-# Run on Android
-npx expo run:android
-
-# Run on iOS
-npx expo run:ios
-```
-
-### Building for Production
-
-```bash
-# Build for Android
-npx eas build --platform android
-
-# Build for iOS
-npx eas build --platform ios
-```
-
-## Screen Details
-
-### 1. Home Screen
-
-- **URL**: http://new.circleftp.net/
-- **Mode**: Desktop (custom user agent)
-- **Features**:
-  - Pull-to-refresh
-  - Offline detection with message: "Connect Circle Network Internet"
-  - Share button (floating action button)
-  - Loading indicator
-  - Error handling
-
-### 2. Billing Screen
-
-- **URL**: https://billing.circlenetworkbd.net/
-- **Mode**: Mobile (default user agent)
-- **Features**:
-  - Pull-to-refresh
-  - Loading indicator
-  - Error handling
-
-### 3. Settings Screen
-
-- **Features**:
-  - Dark/Light mode toggle
-  - Share app functionality
-  - Download folder selection
-  - Developer credit: https://Github.com/iamsh4nto
-
-## User Agent Configuration
-
-### Desktop Mode (Home Screen)
-
-The Home screen uses a desktop user agent to load websites in desktop mode:
-
-```typescript
-const DESKTOP_USER_AGENT =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-```
-
-To change the user agent, edit `src/utils/WebViewUtils.ts`.
-
-### Mobile Mode (Billing Screen)
-
-The Billing screen uses the default mobile user agent (no custom user agent specified).
+1. **Player Selection**: Choose your preferred video player (VLC, MX Player, or System Player)
+2. **Persistent Choice**: Your selection is remembered for future videos
+3. **Change Anytime**: Update your preferred player in Settings
+4. **Supported Players**:
+   - VLC Player
+   - MX Player
+   - System Default Player
 
 ## Download Handling
 
