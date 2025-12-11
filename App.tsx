@@ -5,12 +5,14 @@ import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { useSettingsStore } from './src/store/SettingsStore';
 import { Navigation } from './src/navigation/Navigation';
 import { SplashScreen } from './src/components/SplashScreen';
+import { UpdateChecker } from './src/components/UpdateChecker';
 
 SplashScreenExpo.preventAutoHideAsync();
 
 function AppContent() {
   const [isReady, setIsReady] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+  const [updateCheckComplete, setUpdateCheckComplete] = useState(false);
   const { isDark } = useTheme();
   const loadSettings = useSettingsStore((state) => state.loadSettings);
 
@@ -32,6 +34,10 @@ function AppContent() {
 
   if (!isReady) {
     return null;
+  }
+
+  if (!updateCheckComplete) {
+    return <UpdateChecker onCheckComplete={() => setUpdateCheckComplete(true)} />;
   }
 
   if (showSplash) {

@@ -14,6 +14,7 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { checkGitHubReleases, applyUpdate } from '../utils/UpdateUtils';
 
 // Define external player options
 const EXTERNAL_PLAYERS = [
@@ -28,6 +29,7 @@ export const SettingsScreen: React.FC = () => {
   const [homeDesktopMode, setHomeDesktopMode] = useState<boolean>(false);
   const [billingDesktopMode, setBillingDesktopMode] = useState<boolean>(false);
   const [showHomeReloadButton, setShowHomeReloadButton] = useState<boolean>(true);
+  const [downloadUrl, setDownloadUrl] = useState<string | undefined>(undefined);
 
   // Load preferred player from storage
   useEffect(() => {
@@ -182,6 +184,47 @@ export const SettingsScreen: React.FC = () => {
     );
   };
 
+  // Check for updates manually
+  const handleCheckForUpdates = async () => {
+    try {
+      const { updateAvailable, latestVersion, releaseInfo } = await checkGitHubReleases();
+      
+      if (updateAvailable && releaseInfo) {
+        setDownloadUrl(releaseInfo.browser_download_url);
+        Alert.alert(
+          'Update Available',
+          `A new version (${latestVersion}) of CircleNetwork is available. Would you like to download it now?`,
+          [
+            {
+              text: 'Update Now',
+              onPress: () => applyUpdate(releaseInfo.browser_download_url),
+              style: 'default' as 'default'
+            },
+            {
+              text: 'Later',
+              style: 'cancel' as 'cancel'
+            }
+          ],
+          { cancelable: true }
+        );
+      } else {
+        Alert.alert(
+          'Up to Date',
+          'You are using the latest version of CircleNetwork.',
+          [{ text: 'OK', style: 'default' as 'default' }],
+          { cancelable: true }
+        );
+      }
+    } catch (error) {
+      Alert.alert(
+        'Update Check Failed',
+        'Unable to check for updates. Please check your internet connection and try again.',
+        [{ text: 'OK', style: 'default' as 'default' }],
+        { cancelable: true }
+      );
+    }
+  };
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -304,6 +347,28 @@ export const SettingsScreen: React.FC = () => {
             </Text>
             <Text style={[styles.settingValue, { color: theme.colors.secondary }]}>
               {EXTERNAL_PLAYERS.find(p => p.id === preferredPlayer)?.name || 'System Player'}
+            </Text>
+            <MaterialIcons
+              name="chevron-right"
+              size={24}
+              color={theme.colors.secondary}
+            />
+          </View>
+        </TouchableOpacity>
+
+        {/* Check for Updates */}
+        <TouchableOpacity 
+          style={[styles.sectionCard, { backgroundColor: theme.colors.card }]}
+          onPress={handleCheckForUpdates}
+        >
+          <View style={styles.settingRow}>
+            <MaterialIcons
+              name="system-update"
+              size={20}
+              color={theme.colors.primary}
+            />
+            <Text style={[styles.settingLabel, { color: theme.colors.text, flex: 1, marginLeft: 8 }]}>
+              Check for Updates
             </Text>
             <MaterialIcons
               name="chevron-right"

@@ -52,6 +52,7 @@
       "expo-screen-orientation",
       "expo-video",
       "expo-system-ui",
+      "expo-updates",
       [
         "expo-build-properties",
         {
@@ -65,6 +66,11 @@
       "eas": {
         "projectId": "cc7d30c7-4fd9-4122-a579-33b72496d39f"
       }
+    },
+    "updates": {
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
     }
   }
 }
