@@ -66,6 +66,79 @@ export const CustomWebView: React.FC<CustomWebViewProps> = ({
     setTimeout(() => setRefreshing(false), 1000);
   };
 
+  // New function to check if we should show the Circle Network error message
+  const shouldShowCircleNetworkError = () => {
+    // Show the specific error message when:
+    // 1. We're online but still getting an error (likely DNS or connection issue)
+    // 2. This is the first load attempt
+    return isOnline && error && isFirstLoad;
+  };
+
+  if (shouldShowCircleNetworkError()) {
+    return (
+      <ScrollView
+        contentContainerStyle={[
+          styles.centerContainer,
+          { backgroundColor: theme.colors.background },
+        ]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+      >
+        <Text style={[styles.offlineText, { color: theme.colors.text }]}>
+          Please connect to Circle Network internet
+        </Text>
+        <Text style={[styles.offlineSubtext, { color: theme.colors.secondary }]}>
+          This page failed to load. Please check your internet connection.
+        </Text>
+      </ScrollView>
+    );
+  }
+
+  // Simplified offline handling - just show the same Circle Network message
+  if (!isOnline) {
+    return (
+      <ScrollView
+        contentContainerStyle={[
+          styles.centerContainer,
+          { backgroundColor: theme.colors.background },
+        ]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+      >
+        <Text style={[styles.offlineText, { color: theme.colors.text }]}>
+          Please connect to Circle Network internet
+        </Text>
+        <Text style={[styles.offlineSubtext, { color: theme.colors.secondary }]}>
+          No internet connection detected.
+        </Text>
+      </ScrollView>
+    );
+  }
+
+  // Generic error handling for other cases
+  if (error && !isFirstLoad) {
+    return (
+      <ScrollView
+        contentContainerStyle={[
+          styles.centerContainer,
+          { backgroundColor: theme.colors.background },
+        ]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+      >
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>
+          Failed to load page
+        </Text>
+        <Text style={[styles.errorSubtext, { color: theme.colors.secondary }]}>
+          Pull down to retry
+        </Text>
+      </ScrollView>
+    );
+  }
+
   const handleNavigationStateChange = (navState: any) => {
     if (onNavigationStateChange) {
       onNavigationStateChange(navState.canGoBack, navState.canGoForward);
@@ -141,48 +214,6 @@ export const CustomWebView: React.FC<CustomWebViewProps> = ({
     
     return true;
   };
-
-  if (!isOnline) {
-    return (
-      <ScrollView
-        contentContainerStyle={[
-          styles.centerContainer,
-          { backgroundColor: theme.colors.background },
-        ]}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-      >
-        <Text style={[styles.offlineText, { color: theme.colors.text }]}>
-          Connect Circle Network Internet
-        </Text>
-        <Text style={[styles.offlineSubtext, { color: theme.colors.secondary }]}>
-          Please check your internet connection and try again
-        </Text>
-      </ScrollView>
-    );
-  }
-
-  if (error) {
-    return (
-      <ScrollView
-        contentContainerStyle={[
-          styles.centerContainer,
-          { backgroundColor: theme.colors.background },
-        ]}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-      >
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>
-          Failed to load page
-        </Text>
-        <Text style={[styles.errorSubtext, { color: theme.colors.secondary }]}>
-          Pull down to retry
-        </Text>
-      </ScrollView>
-    );
-  }
 
   return (
     <View style={styles.container}>
