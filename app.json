@@ -7,6 +7,11 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.circlenetwork.app"
@@ -29,7 +34,6 @@
         "android.permission.READ_MEDIA_AUDIO"
       ],
       "package": "com.circlenetwork.app",
-      "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -47,6 +51,7 @@
       ],
       "expo-screen-orientation",
       "expo-video",
+      "expo-system-ui",
       [
         "expo-build-properties",
         {
