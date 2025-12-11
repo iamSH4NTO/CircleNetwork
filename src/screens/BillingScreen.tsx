@@ -60,7 +60,7 @@ export const BillingScreen: React.FC = () => {
           setCanGoBack(back);
           setCanGoForward(forward);
         }}
-        webViewRef={webViewRef}
+        webViewRef={webViewRef as any}
       />
     </View>
   );
