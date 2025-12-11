@@ -39,7 +39,7 @@ const darkTheme: Theme = {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [isDark, setIsDark] = useState(false);
+  const [isDark, setIsDark] = useState(true); // Default to dark theme
 
   useEffect(() => {
     loadTheme();
@@ -51,6 +51,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (savedTheme) {
         setIsDark(savedTheme === 'dark');
       }
+      // If no saved theme, default to dark (isDark is already true)
     } catch (error) {
       console.error('Failed to load theme:', error);
     }
